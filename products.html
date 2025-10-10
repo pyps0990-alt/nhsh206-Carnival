@@ -5,6 +5,39 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>206 班｜商品列表</title>
   <link rel="stylesheet" href="styles.css">
+  <style>
+    /* ======= 數量控制樣式 ======= */
+    .qty-control {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 6px;
+    }
+    .qty-control button {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: none;
+      background: var(--panel);
+      color: var(--text);
+      font-weight: 700;
+      font-size: 18px;
+      cursor: pointer;
+      transition: filter .2s;
+    }
+    .qty-control button:hover { filter: brightness(1.2); }
+    .qty-control .qty {
+      min-width: 24px;
+      text-align: center;
+      font-weight: 700;
+      font-size: 16px;
+      color: var(--text);
+      background: var(--bg);
+      border-radius: 6px;
+      padding: 4px 8px;
+    }
+  </style>
 </head>
 <body>
   <header class="site-header">
@@ -37,165 +70,188 @@
   </main>
 
   <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
-// Firebase 配置
-const firebaseConfig = {
-  apiKey: "AIzaSyAk6JPL61gRlRtLP7926iAfbSr05O0AM9s",
-  authDomain: "nhshfestival.firebaseapp.com",
-  databaseURL: "https://nhshfestival-default-rtdb.firebaseio.com",
-  projectId: "nhshfestival",
-  storageBucket: "nhshfestival.firebasestorage.app",
-  messagingSenderId: "337149505249",
-  appId: "1:337149505249:web:4e81a826911c078fd811a0"
-};
-const app = initializeApp(firebaseConfig);
-const dbRT = getDatabase(app);
+    const firebaseConfig = {
+      apiKey: "AIzaSyAk6JPL61gRlRtLP7926iAfbSr05O0AM9s",
+      authDomain: "nhshfestival.firebaseapp.com",
+      databaseURL: "https://nhshfestival-default-rtdb.firebaseio.com",
+      projectId: "nhshfestival",
+      storageBucket: "nhshfestival.firebasestorage.app",
+      messagingSenderId: "337149505249",
+      appId: "1:337149505249:web:4e81a826911c078fd811a0"
+    };
+    const app = initializeApp(firebaseConfig);
+    const dbRT = getDatabase(app);
 
-// ------------------ 購物車 ------------------
-function genId() { return 'o_' + Math.random().toString(36).slice(2, 9); }
-
-function readOrders() { 
-  return JSON.parse(localStorage.getItem('class206_orders_v2') || '[]'); 
-}
-
-function writeOrders(list){
-  localStorage.setItem('class206_orders_v2', JSON.stringify(list));
-  syncCartBadge();
-}
-
-function addToCart(itemId, qty = 1) {
-  const item = products.find(p => p.id === itemId);
-  if (!item) return;
-
-  if (item.stock < qty) {
-    alert(`庫存不足，目前剩 ${item.stock} 件`);
-    return;
-  }
-
-  const orders = readOrders();
-  const existingIndex = orders.findIndex(o => o.items.some(i => i.id === itemId));
-
-  if (existingIndex >= 0) {
-    const currentQty = orders[existingIndex].items[0].qty;
-    if (currentQty + qty > item.stock) {
-      alert(`庫存不足，最多還能購買 ${item.stock - currentQty} 件`);
-      return;
+    // ------------------ 購物車 ------------------
+    function genId() { return 'o_' + Math.random().toString(36).slice(2, 9); }
+    function readOrders() { return JSON.parse(localStorage.getItem('class206_orders_v2') || '[]'); }
+    function writeOrders(list){
+      localStorage.setItem('class206_orders_v2', JSON.stringify(list));
+      syncCartBadge();
     }
-    orders[existingIndex].items[0].qty += qty;
-  } else {
-    orders.push({ id: genId(), createdAt: Date.now(), items: [{ id: itemId, qty }] });
-  }
+    function addToCart(itemId, qty = 1) {
+      const item = products.find(p => p.id === itemId);
+      if (!item) return;
+      if (item.stock < qty) {
+        alert(`庫存不足，目前剩 ${item.stock} 件`);
+        return;
+      }
 
-  writeOrders(orders);
-  showAddedTip();
-}
+      const orders = readOrders();
+      const existingIndex = orders.findIndex(o => o.items.some(i => i.id === itemId));
 
-function syncCartBadge() {
-  const badge = document.getElementById('cart-badge');
-  if (!badge) return;
-  const orders = readOrders();
-  let count = 0;
-  orders.forEach(o => o.items.forEach(i => count += i.qty));
-  badge.textContent = count;
-}
+      if (existingIndex >= 0) {
+        const currentQty = orders[existingIndex].items[0].qty;
+        if (currentQty + qty > item.stock) {
+          alert(`庫存不足，最多還能購買 ${item.stock - currentQty} 件`);
+          return;
+        }
+        orders[existingIndex].items[0].qty += qty;
+      } else {
+        orders.push({ id: genId(), createdAt: Date.now(), items: [{ id: itemId, qty }] });
+      }
 
-function showAddedTip() {
-  let tip = document.querySelector('.added-tip');
-  if (!tip) {
-    tip = document.createElement('div');
-    tip.className = 'added-tip';
-    tip.textContent = '已加入購物車';
-    document.body.appendChild(tip);
-  }
-  tip.classList.add('show');
-  setTimeout(() => tip.classList.remove('show'), 1200);
-}
-
-// ------------------ 商品列表 ------------------
-let products = [];
-
-function renderMenu() {
-  const wrap = document.getElementById('menu-list');
-  wrap.innerHTML = '';
-  products.forEach(item => {
-    const card = document.createElement('article');
-    card.className = 'card product-card';
-    card.innerHTML = `
-      <div style="position:relative;border-radius:10px;overflow:hidden;margin:-6px -6px 10px;border:1px solid rgba(255,255,255,.06)">
-        <img src="${item.img}" alt="${item.name}" style="width:100%;height:140px;object-fit:cover;">
-        ${item.hot ? '<span class="hot-badge">熱銷</span>' : ''}
-        <span class="price-badge">$${item.price}</span>
-      </div>
-      <h4>${item.name}</h4>
-      <p class="muted">${item.desc}</p>
-      <p class="muted">庫存：${item.stock}</p>
-      <div style="display:flex;justify-content:space-between;margin-top:8px">
-        <button class="btn primary" data-add="${item.id}">加入</button>
-        <button class="btn" data-detail="${item.id}">詳情</button>
-      </div>
-    `;
-    wrap.appendChild(card);
-  });
-
-  wrap.addEventListener('click', e => {
-    const btnAdd = e.target.closest('button[data-add]');
-    if (btnAdd) {
-      addToCart(btnAdd.getAttribute('data-add'));
+      writeOrders(orders);
+      showAddedTip();
+    }
+    function syncCartBadge() {
+      const badge = document.getElementById('cart-badge');
+      if (!badge) return;
+      const orders = readOrders();
+      let count = 0;
+      orders.forEach(o => o.items.forEach(i => count += i.qty));
+      badge.textContent = count;
+    }
+    function showAddedTip() {
+      let tip = document.querySelector('.added-tip');
+      if (!tip) {
+        tip = document.createElement('div');
+        tip.className = 'added-tip';
+        tip.textContent = '已加入購物車';
+        document.body.appendChild(tip);
+      }
+      tip.classList.add('show');
+      setTimeout(() => tip.classList.remove('show'), 1200);
     }
 
-    const btnDetail = e.target.closest('button[data-detail]');
-    if (btnDetail) {
-      showProductDetail(btnDetail.getAttribute('data-detail'));
+    // ------------------ 商品列表 ------------------
+    let products = [];
+
+    function renderMenu() {
+      const wrap = document.getElementById('menu-list');
+      wrap.innerHTML = '';
+      products.forEach(item => {
+        const card = document.createElement('article');
+        card.className = 'card product-card';
+        card.innerHTML = `
+          <div style="position:relative;border-radius:10px;overflow:hidden;margin:-6px -6px 10px;border:1px solid rgba(255,255,255,.06)">
+            <img src="${item.img}" alt="${item.name}" style="width:100%;height:140px;object-fit:cover;">
+            ${item.hot ? '<span class="hot-badge">熱銷</span>' : ''}
+            <span class="price-badge">$${item.price}</span>
+          </div>
+          <h4>${item.name}</h4>
+          <p class="muted">${item.desc}</p>
+          <p class="muted">庫存：${item.stock}</p>
+          <div class="qty-control" data-id="${item.id}">
+            <button class="btn-decrease">-</button>
+            <span class="qty">1</span>
+            <button class="btn-increase">+</button>
+          </div>
+          <button class="btn primary" data-add="${item.id}">加入</button>
+          <button class="btn" data-detail="${item.id}">詳情</button>
+        `;
+        wrap.appendChild(card);
+      });
+
+      wrap.addEventListener('click', e => {
+        const control = e.target.closest('.qty-control');
+        if (control) {
+          const id = control.getAttribute('data-id');
+          const span = control.querySelector('.qty');
+          let qty = Number(span.textContent);
+          const item = products.find(p => p.id === id);
+
+          if (e.target.classList.contains('btn-increase')) {
+            if (qty < item.stock) qty++;
+          } else if (e.target.classList.contains('btn-decrease')) {
+            if (qty > 1) qty--;
+          }
+          span.textContent = qty;
+        }
+
+        const btnAdd = e.target.closest('button[data-add]');
+        if (btnAdd) {
+          const id = btnAdd.getAttribute('data-add');
+          const qty = Number(btnAdd.closest('.card').querySelector('.qty').textContent);
+          addToCart(id, qty);
+        }
+
+        const btnDetail = e.target.closest('button[data-detail]');
+        if (btnDetail) {
+          showProductDetail(btnDetail.getAttribute('data-detail'));
+        }
+      });
     }
-  });
-}
 
-function showProductDetail(itemId) {
-  const item = products.find(p => p.id === itemId);
-  if (!item) return;
+    function showProductDetail(itemId) {
+      const item = products.find(p => p.id === itemId);
+      if (!item) return;
 
-  const detail = document.getElementById('product-detail');
-  detail.innerHTML = `
-    <div class="detail-card">
-      <button class="btn" id="back-menu">&lt; 返回</button>
-      <img src="${item.img}" alt="${item.name}">
-      <h2>${item.name}</h2>
-      <p class="muted">${item.desc}</p>
-      <p class="price-badge">$${item.price}</p>
-      <p class="muted">庫存：${item.stock}</p>
-      <button class="btn primary" id="detail-add">加入購物車</button>
-    </div>
-  `;
-  detail.style.display = 'block';
-  document.getElementById('menu-list').style.display = 'none';
+      const detail = document.getElementById('product-detail');
+      detail.innerHTML = `
+        <div class="detail-card">
+          <button class="btn" id="back-menu">&lt; 返回</button>
+          <img src="${item.img}" alt="${item.name}">
+          <h2>${item.name}</h2>
+          <p class="muted">${item.desc}</p>
+          <p class="price-badge">$${item.price}</p>
+          <p class="muted">庫存：${item.stock}</p>
+          <div class="qty-control" data-id="${item.id}">
+            <button class="btn-decrease">-</button>
+            <span class="qty">1</span>
+            <button class="btn-increase">+</button>
+          </div>
+          <button class="btn primary" id="detail-add">加入購物車</button>
+        </div>
+      `;
+      detail.style.display = 'block';
+      document.getElementById('menu-list').style.display = 'none';
 
-  document.getElementById('back-menu').onclick = () => {
-    detail.style.display = 'none';
-    document.getElementById('menu-list').style.display = 'block';
-  };
-  document.getElementById('detail-add').onclick = () => {
-    addToCart(item.id);
-  };
-}
+      const span = detail.querySelector('.qty');
+      const increase = detail.querySelector('.btn-increase');
+      const decrease = detail.querySelector('.btn-decrease');
 
-// ------------------ Realtime Database ------------------
-function loadProductsRealtime() {
-  const productsRef = ref(dbRT, 'products');
-  onValue(productsRef, snapshot => {
-    const data = snapshot.val() || {};
-    products = Object.entries(data).map(([id, d]) => ({ id, ...d }));
-    renderMenu();
-    syncCartBadge();
-  });
-}
+      increase.onclick = () => { if(Number(span.textContent)<item.stock) span.textContent = Number(span.textContent)+1; };
+      decrease.onclick = () => { if(Number(span.textContent)>1) span.textContent = Number(span.textContent)-1; };
 
-// ------------------ 初始化 ------------------
-document.addEventListener('DOMContentLoaded', () => {
-  loadProductsRealtime();
-  syncCartBadge();
-});
-</script>
+      document.getElementById('detail-add').onclick = () => {
+        const qty = Number(span.textContent);
+        addToCart(item.id, qty);
+      };
+
+      document.getElementById('back-menu').onclick = () => {
+        detail.style.display = 'none';
+        document.getElementById('menu-list').style.display = 'block';
+      };
+    }
+
+    function loadProductsRealtime() {
+      const productsRef = ref(dbRT, 'products');
+      onValue(productsRef, snapshot => {
+        const data = snapshot.val() || {};
+        products = Object.entries(data).map(([id, d]) => ({ id, ...d }));
+        renderMenu();
+        syncCartBadge();
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadProductsRealtime();
+      syncCartBadge();
+    });
+  </script>
 </body>
 </html>
