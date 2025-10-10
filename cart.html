@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>206 班｜購物車</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand-wrap">
+        <h1 class="brand">206 班購物車</h1>
+      </div>
+      <nav class="nav">
+        <a href="products.html">返回選購</a>
+        <a href="cart.html" class="cart-link" id="cart-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="9" cy="21" r="1"></circle>
+            <circle cx="20" cy="21" r="1"></circle>
+            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+          </svg>
+          <span id="cart-badge" class="cart-badge">0</span>
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="section">
+      <div class="container" style="display:grid;grid-template-columns:2fr 1fr;gap:16px">
+        <div id="cart-items">
+          <h3>購物車</h3>
+        </div>
+
+        <aside class="card" style="height:max-content;position:sticky;top:72px">
+          <h4>訂單摘要</h4>
+          <div id="checkout-summary" style="display:grid;gap:8px"></div>
+          <div class="actions" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+            <button type="button" id="clear-orders" class="btn danger">清除全部</button>
+            <a href="checkout.html" class="btn primary" style="margin-left:auto">前往付款</a>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </main>
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+    // Firebase 配置
+    const firebaseConfig = {
+      apiKey: "AIzaSyAk6JPL61gRlRtLP7926iAfbSr05O0AM9s",
+      authDomain: "nhshfestival.firebaseapp.com",
+      databaseURL: "https://nhshfestival-default-rtdb.firebaseio.com",
+      projectId: "nhshfestival",
+      storageBucket: "nhshfestival.firebasestorage.app",
+      messagingSenderId: "337149505249",
+      appId: "1:337149505249:web:4e81a826911c078fd811a0"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const dbRT = getDatabase(app);
+
+    // ------------------ 購物車操作 ------------------
+    function genId() { return 'o_' + Math.random().toString(36).slice(2, 9); }
+
+    function readOrders() { 
+      return JSON.parse(localStorage.getItem('class206_orders_v2') || '[]'); 
+    }
+
+    function writeOrders(list){
+      localStorage.setItem('class206_orders_v2', JSON.stringify(list));
+      renderCart();
+      syncCartBadge();
+    }
+
+    function addToCart(itemId, qty = 1) {
+      const orders = readOrders();
+      const existingIndex = orders.findIndex(o => o.items.some(i => i.id === itemId));
+      if (existingIndex >= 0) {
+        orders[existingIndex].items[0].qty += qty;
+      } else {
+        orders.push({ id: genId(), createdAt: Date.now(), items: [{ id: itemId, qty }] });
+      }
+      writeOrders(orders);
+    }
+
+    function removeFromCart(itemId) {
+      let orders = readOrders();
+      orders = orders.filter(o => !o.items.some(i => i.id === itemId));
+      writeOrders(orders);
+    }
+
+    function clearCart() {
+      localStorage.removeItem('class206_orders_v2');
+      renderCart();
+      syncCartBadge();
+    }
+
+    function syncCartBadge() {
+      const badge = document.getElementById('cart-badge');
+      if (!badge) return;
+      const orders = readOrders();
+      let count = 0;
+      orders.forEach(o => o.items.forEach(i => count += i.qty));
+      badge.textContent = count;
+    }
+
+    // ------------------ 讀取 Realtime Database 商品 ------------------
+    let products = [];
+
+    async function loadProducts() {
+      try {
+        const snapshot = await get(ref(dbRT, 'products'));
+        if (snapshot.exists()) {
+          products = Object.entries(snapshot.val()).map(([id, data]) => ({ id, ...data }));
+          renderCart();
+        } else {
+          products = [];
+          document.getElementById('cart-items').innerHTML = '<p>目前沒有商品</p>';
+        }
+      } catch (err) {
+        console.error(err);
+        document.getElementById('cart-items').innerHTML = '<p>讀取商品失敗</p>';
+      }
+    }
+
+    // ------------------ 渲染購物車 ------------------
+    function renderCart() {
+      const wrap = document.getElementById('cart-items');
+      wrap.innerHTML = '<h3>購物車</h3>';
+
+      const orders = readOrders();
+      const summary = document.getElementById('checkout-summary');
+      summary.innerHTML = '';
+
+      if (orders.length === 0) {
+        wrap.innerHTML += '<p>購物車是空的</p>';
+        summary.innerHTML = '<p>總金額：$0</p>';
+        return;
+      }
+
+      let total = 0;
+
+      orders.forEach(order => {
+        order.items.forEach(itemOrder => {
+          const product = products.find(p => p.id === itemOrder.id);
+          if (!product) return;
+
+          const row = document.createElement('div');
+          row.style.display = 'flex';
+          row.style.justifyContent = 'space-between';
+          row.style.alignItems = 'center';
+          row.style.padding = '8px';
+          row.style.border = '1px solid rgba(255,255,255,.08)';
+          row.style.borderRadius = '8px';
+          row.style.marginBottom = '6px';
+          row.innerHTML = `
+            <span>${product.name} x ${itemOrder.qty}</span>
+            <span>
+              $${product.price * itemOrder.qty} 
+              <button class="btn danger btn-sm" data-remove="${product.id}">刪除</button>
+            </span>
+          `;
+          wrap.appendChild(row);
+
+          total += product.price * itemOrder.qty;
+        });
+      });
+
+      // 顯示總金額
+      summary.innerHTML = `<p>總金額：$${total}</p>`;
+
+      // 綁定刪除按鈕
+      wrap.querySelectorAll('button[data-remove]').forEach(btn => {
+        btn.onclick = () => {
+          const id = btn.getAttribute('data-remove');
+          removeFromCart(id);
+        };
+      });
+    }
+
+    document.getElementById('clear-orders').onclick = clearCart;
+
+    // ------------------ 初始化 ------------------
+    document.addEventListener('DOMContentLoaded', () => {
+      loadProducts();
+      syncCartBadge();
+    });
+  </script>
+</body>
+</html>

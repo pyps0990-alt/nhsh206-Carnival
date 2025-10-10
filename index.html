@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>206 班｜首頁</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand-wrap">
+        <h1 class="brand">206 班校慶</h1>
+      </div>
+      <nav class="nav">
+        <a href="products.html">商品列表</a>
+        <a href="cart.html" class="cart-link" id="cart-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="9" cy="21" r="1"></circle>
+            <circle cx="20" cy="21" r="1"></circle>
+            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+          </svg>
+          <span id="cart-badge" class="cart-badge">0</span>
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="section hero">
+      <div class="container">
+        <h2>歡迎來到 206 班校慶園遊會</h2>
+        <p class="subtitle">快來選購你喜歡的美食與飲品吧！</p>
+        <a href="products.html" class="btn primary">前往商品列表</a>
+      </div>
+    </section>
+    <section class="section place">
+  <div class="container">
+    <h2>攤位位置</h2>
+    <div class="booth-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-top:16px">
+      <!-- 範例攤位圖片 -->
+      <div class="booth-card">
+        <img src="images/booth206.png" alt="攤位 1" style="width: 100%;border-radius:12px;object-fit:cover;">
+        <h4>206攤位</h4>
+    </div>
+  </div>
+</section>
+  </main>
+</body>
+  <footer class="site-footer">
+    <div class="container">
+      <p>© 206 班校慶園遊會</p>
+    </div>
+  </footer>
+
+  <script>
+    function readOrders() {
+      return JSON.parse(localStorage.getItem('class206_orders_v2') || '[]');
+    }
+    function syncCartBadge() {
+      const badge = document.getElementById('cart-badge');
+      if (!badge) return;
+      const orders = readOrders();
+      let count = 0;
+      orders.forEach(o => o.items.forEach(i => count += i.qty));
+      badge.textContent = count;
+    }
+    document.addEventListener("DOMContentLoaded", () => {
+      syncCartBadge();
+    });
+  </script>
+
+</html>
