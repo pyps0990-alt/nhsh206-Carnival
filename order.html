@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>訂單後台管理 | 飲ㄐㄩ啦</title>
-  <style>
+    <style>
     :root {
       --bg: #f8f6f2;
       --panel: #e8e2da;
@@ -29,6 +29,9 @@
       font-size: 22px;
       letter-spacing: 2px;
       font-weight: 600;
+      position: sticky; /* 讓標題在滑動時能固定在頂部，體驗更好 */
+      top: 0;
+      z-index: 10;
     }
     main {
       padding: 16px;
@@ -57,8 +60,8 @@
       border-radius: 8px;
       padding: 10px;
       min-height: 200px;
-      max-height: 600px;
-      overflow-y: auto;
+      max-height: 600px; /* 這個在電腦版上很有用 */
+      overflow-y: auto;   /* 電腦版內容過多時，欄位內部可以滾動 */
     }
     .status-col h3 {
       text-align: center;
@@ -68,6 +71,8 @@
       padding: 6px;
       border-radius: 6px;
       font-size: 16px;
+      position: sticky; /* 讓欄位標題在內部滾動時固定 */
+      top: -10px; /* 向上微調，使其貼合邊緣 */
     }
     .order-card {
       border: 2px solid var(--accent2);
@@ -105,6 +110,30 @@
     .btn-next:hover { filter: brightness(1.15); }
     .btn-back { background: var(--pending); color: white; }
     .btn-back:hover { filter: brightness(1.1); }
+
+    /* --- 響應式設計：針對手機等窄螢幕裝置 --- */
+    @media (max-width: 768px) {
+      main {
+        padding: 12px; /* 在手機上稍微減少邊距 */
+      }
+      .status-columns {
+        flex-direction: column; /* 這是關鍵！將欄位從水平排列改為垂直堆疊 */
+        gap: 12px;
+      }
+      .status-col {
+        max-height: none; /* 在垂直堆疊時，取消最大高度限制，讓內容自然延伸 */
+        overflow-y: visible; /* 移除內部滾動條 */
+      }
+      .status-col h3 {
+        position: static; /* 手機版不需要固定標題 */
+      }
+      header {
+        font-size: 20px; /* 標題字體稍微縮小 */
+      }
+      .time-title {
+        font-size: 18px; /* 時段標題字體稍微縮小 */
+      }
+    }
   </style>
 </head>
 <body>
