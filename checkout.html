@@ -7,7 +7,16 @@
   <link rel="icon" href="飲ㄐㄩ啦.ico" type="image/x-icon">
   <title>結帳</title>
   <style>
-    /* ======= 數量控制樣式 ======= */
+    .checkout-summary {
+      background: var(--panel);
+      border-radius: 10px;
+      padding: 12px;
+      margin: 16px auto;
+      color: var(--text);
+      font-weight: 600;
+      max-width: 600px;
+    }
+
     .qty-control {
       display: flex;
       align-items: center;
@@ -62,19 +71,25 @@
 
   <main>
     <section class="section">
-      <div class="container" id="menu-list">
-        <p>讀取中...</p>
+      <div class="container">
+        <div id="checkout-summary">讀取中...</div>
+
+        <form id="checkout-form">
+          <label>姓名：<input type="text" name="customerName" required></label><br>
+          <label>聯絡方式：<input type="text" name="contact" required></label><br>
+          <label>取餐時間：<input type="time" name="pickupTime" required></label><br>
+          <label>備註：<textarea name="note"></textarea></label><br>
+          <button type="submit">送出訂單</button>
+        </form>
       </div>
     </section>
-
-    <section id="product-detail"></section>
   </main>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-import { getDatabase, ref, push } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+import { getDatabase, ref, push, get, update } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
-// Firebase 配置
+// Firebase 設定
 const firebaseConfig = {
   apiKey: "AIzaSyAk6JPL61gRlRtLP7926iAfbSr05O0AM9s",
   authDomain: "nhshfestival.firebaseapp.com",
@@ -89,8 +104,8 @@ const app = initializeApp(firebaseConfig);
 const dbRT = getDatabase(app);
 
 // ------------------ 購物車 ------------------
-function readOrders() { 
-  return JSON.parse(localStorage.getItem('class206_orders_v2') || '[]'); 
+function readOrders() {
+  return JSON.parse(localStorage.getItem('class206_orders_v2') || '[]');
 }
 
 function syncCartBadge() {
@@ -129,7 +144,6 @@ function renderCheckoutSummary() {
   }
 
   let total = 0;
-
   orders.forEach(order => {
     order.items.forEach(itemOrder => {
       const product = products.find(p => p.id === itemOrder.id);
@@ -138,13 +152,11 @@ function renderCheckoutSummary() {
       const row = document.createElement('div');
       row.style.display = 'flex';
       row.style.justifyContent = 'space-between';
-      row.style.marginBottom = '4px';
       row.innerHTML = `
         <span>${product.name} x ${itemOrder.qty}</span>
         <span>$${product.price * itemOrder.qty}</span>
       `;
       summary.appendChild(row);
-
       total += product.price * itemOrder.qty;
     });
   });
@@ -162,7 +174,6 @@ document.addEventListener('DOMContentLoaded', () => {
   syncCartBadge();
 
   const form = document.getElementById('checkout-form');
-
   form.addEventListener('submit', async e => {
     e.preventDefault();
     const formData = new FormData(form);
@@ -173,29 +184,46 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    const orderNumber = "ORD-" + Date.now().toString().slice(-5);
+
     const orderData = {
+      orderNumber,
       customerName: formData.get('customerName'),
       contact: formData.get('contact'),
       pickupTime: formData.get('pickupTime'),
       note: formData.get('note'),
       items: orders,
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      status: "pending"
     };
 
     try {
       await push(ref(dbRT, 'orders'), orderData);
-      alert('訂單已成功送出！');
+
+      // 更新庫存
+      for (const order of orders) {
+        for (const item of order.items) {
+          const productRef = ref(dbRT, `products/${item.id}`);
+          const snap = await get(productRef);
+          if (snap.exists()) {
+            const currentStock = snap.val().stock || 0;
+            await update(productRef, { stock: Math.max(0, currentStock - item.qty) });
+          }
+        }
+      }
+
+      alert('✅ 訂單已成功送出並更新庫存！');
       localStorage.removeItem('class206_orders_v2');
       renderCheckoutSummary();
       syncCartBadge();
       form.reset();
+
     } catch (err) {
       console.error(err);
-      alert('訂單送出失敗，請稍後再試。');
+      alert('❌ 訂單送出失敗，請稍後再試。');
     }
   });
 });
 </script>
-
 </body>
 </html>
