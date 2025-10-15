@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>訂單後台管理 | 飲ㄐㄩ啦</title>
+  <style>
+    :root {
+      --bg: #f8f6f2;
+      --panel: #e8e2da;
+      --text: #2f2f2f;
+      --accent1: #9bb49a;
+      --accent2: #b0a48a;
+      --done: #7a9d54;
+      --pending: #d2a679;
+    }
+    body {
+      font-family: "Noto Sans TC", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background: var(--accent1);
+      color: white;
+      padding: 16px;
+      text-align: center;
+      font-size: 22px;
+      letter-spacing: 2px;
+      font-weight: 600;
+    }
+    main {
+      padding: 16px;
+    }
+    .time-block {
+      background: var(--panel);
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    .time-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: var(--accent2);
+    }
+    .status-columns {
+      display: flex;
+      gap: 16px;
+      justify-content: space-between;
+    }
+    .status-col {
+      flex: 1;
+      background: #fff;
+      border-radius: 8px;
+      padding: 10px;
+      min-height: 200px;
+      max-height: 600px;
+      overflow-y: auto;
+    }
+    .status-col h3 {
+      text-align: center;
+      margin: 8px 0;
+      background: var(--accent1);
+      color: white;
+      padding: 6px;
+      border-radius: 6px;
+      font-size: 16px;
+    }
+    .order-card {
+      border: 2px solid var(--accent2);
+      border-radius: 8px;
+      padding: 10px;
+      margin: 8px 0;
+      background: var(--panel);
+      font-size: 15px;
+    }
+    .order-header {
+      display: flex;
+      justify-content: space-between;
+      font-weight: 700;
+      color: var(--accent1);
+    }
+    .order-items {
+      margin-top: 6px;
+      line-height: 1.6;
+    }
+    .order-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 8px;
+    }
+    .order-footer button {
+      border: none;
+      padding: 6px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: 0.2s;
+    }
+    .btn-next { background: var(--accent1); color: white; }
+    .btn-next:hover { filter: brightness(1.15); }
+    .btn-back { background: var(--pending); color: white; }
+    .btn-back:hover { filter: brightness(1.1); }
+  </style>
+</head>
+<body>
+  <header>飲ㄐㄩ啦 — 訂單管理系統</header>
+  <main id="order-area">讀取中...</main>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+// Firebase 配置（與結帳頁一致）
+const firebaseConfig = {
+  apiKey: "AIzaSyAk6JPL61gRlRtLP7926iAfbSr05O0AM9s",
+  authDomain: "nhshfestival.firebaseapp.com",
+  databaseURL: "https://nhshfestival-default-rtdb.firebaseio.com",
+  projectId: "nhshfestival",
+  storageBucket: "nhshfestival.firebasestorage.app",
+  messagingSenderId: "337149505249",
+  appId: "1:337149505249:web:4e81a826911c078fd811a0"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+// 狀態對照表
+const STATUS = ["未製作", "待取餐", "已取餐"];
+
+const orderArea = document.getElementById("order-area");
+
+// 監聽訂單變動
+onValue(ref(db, "orders"), snapshot => {
+  const data = snapshot.val();
+  if (!data) {
+    orderArea.innerHTML = "<p>目前沒有訂單</p>";
+    return;
+  }
+  renderOrders(data);
+});
+
+function renderOrders(data) {
+  const byTime = {};
+
+  Object.entries(data).forEach(([id, order]) => {
+    const time = order.pickupTime || "未指定時段";
+    if (!byTime[time]) byTime[time] = [];
+    byTime[time].push({ id, ...order });
+  });
+
+  orderArea.innerHTML = "";
+
+  Object.entries(byTime).forEach(([time, orders]) => {
+    const block = document.createElement("div");
+    block.className = "time-block";
+
+    block.innerHTML = `<div class="time-title">⏰ ${time}</div>
+    <div class="status-columns">
+      <div class="status-col" id="col-new-${time.replace(/\s+/g, '')}">
+        <h3>未製作</h3>
+      </div>
+      <div class="status-col" id="col-ready-${time.replace(/\s+/g, '')}">
+        <h3>待取餐</h3>
+      </div>
+      <div class="status-col" id="col-done-${time.replace(/\s+/g, '')}">
+        <h3>已取餐</h3>
+      </div>
+    </div>`;
+    orderArea.appendChild(block);
+
+    orders.forEach(order => renderOrderCard(order, time));
+  });
+}
+
+function renderOrderCard(order, time) {
+  const colNew = document.getElementById(`col-new-${time.replace(/\s+/g, '')}`);
+  const colReady = document.getElementById(`col-ready-${time.replace(/\s+/g, '')}`);
+  const colDone = document.getElementById(`col-done-${time.replace(/\s+/g, '')}`);
+
+  const card = document.createElement("div");
+  card.className = "order-card";
+
+  const total = order.items
+    ? order.items.reduce((sum, o) => sum + o.items.reduce((s, i) => s + (i.price * i.qty || 0), 0), 0)
+    : 0;
+
+  card.innerHTML = `
+    <div class="order-header">
+      <span>號碼牌：<strong>${order.ticket || "未設定"}</strong></span>
+      <span>${order.customerName || "未命名"}</span>
+    </div>
+    <div class="order-items">
+      ${order.items
+        ?.map(o => o.items.map(i => `${i.name} × ${i.qty}`).join("<br>"))
+        .join("<br>")}
+    </div>
+    <div class="order-footer">
+      <span>💰 總金額：$${total}</span>
+      <div>
+        ${order.status !== "未製作" ? `<button class="btn-back">⬅ 上一階段</button>` : ""}
+        ${order.status !== "已取餐" ? `<button class="btn-next">下一階段 ➡</button>` : ""}
+      </div>
+    </div>
+  `;
+
+  const nextBtn = card.querySelector(".btn-next");
+  const backBtn = card.querySelector(".btn-back");
+
+  if (nextBtn) nextBtn.onclick = () => changeStatus(order.id, order.status, 1);
+  if (backBtn) backBtn.onclick = () => changeStatus(order.id, order.status, -1);
+
+  if (order.status === "未製作") colNew.appendChild(card);
+  else if (order.status === "待取餐") colReady.appendChild(card);
+  else colDone.appendChild(card);
+}
+
+function changeStatus(id, current, step) {
+  const index = STATUS.indexOf(current);
+  const newStatus = STATUS[index + step];
+  if (!newStatus) return;
+  update(ref(db, `orders/${id}`), { status: newStatus });
+}
+</script>
+</body>
+</html>
