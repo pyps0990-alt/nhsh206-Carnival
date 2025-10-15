@@ -3,18 +3,51 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>206 班｜結帳</title>
+  <link rel="icon" href="飲ㄐㄩ啦.ico" type="image/x-icon">
+  <title>結帳</title>
   <link rel="stylesheet" href="styles.css">
-  <script type="module" src="script.js"></script>
+  <style>
+    /* ======= 數量控制樣式 ======= */
+    .qty-control {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 6px;
+    }
+    .qty-control button {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: none;
+      background: var(--panel);
+      color: var(--text);
+      font-weight: 700;
+      font-size: 18px;
+      cursor: pointer;
+      transition: filter .2s;
+    }
+    .qty-control button:hover { filter: brightness(1.2); }
+    .qty-control .qty {
+      min-width: 24px;
+      text-align: center;
+      font-weight: 700;
+      font-size: 16px;
+      color: var(--text);
+      background: var(--bg);
+      border-radius: 6px;
+      padding: 4px 8px;
+    }
+  </style>
 </head>
 <body>
   <header class="site-header">
     <div class="container header-inner">
       <div class="brand-wrap">
-        <h1 class="brand">206 班結帳</h1>
+        <h1 class="brand">飲ㄐㄩ啦</h1>
       </div>
       <nav class="nav">
-        <a href="cart.html">返回購物車</a>
+        <a href="index.html">返回首頁</a>
         <a href="cart.html" class="cart-link" id="cart-icon">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="9" cy="21" r="1"></circle>
@@ -29,161 +62,139 @@
 
   <main>
     <section class="section">
-      <div class="container" style="display:grid;grid-template-columns:1.4fr .8fr;gap:16px">
-        <div>
-          <h3>取餐資訊</h3>
-          <form id="checkout-form" class="card order-form">
-            <div class="form-row">
-              <label>姓名
-                <input name="customerName" required placeholder="取餐姓名">
-              </label>
-              <label>聯絡方式
-                <input name="contact" placeholder="電話或 IG">
-              </label>
-            </div>
-            <div class="form-row">
-              <label>取餐時段
-                <select name="pickupTime" required>
-                  <option value="" disabled selected>請選擇</option>
-                  <option>09:30-10:30</option>
-                  <option>10:30-11:30</option>
-                  <option>11:30-12:30</option>
-                  <option>12:30-13:30</option>
-                </select>
-              </label>
-              <label>備註
-                <input name="note" placeholder="例如：先不加冰、打電話通知">
-              </label>
-            </div>
-            <div class="actions">
-              <button type="submit" class="btn primary">確認下單</button>
-            </div>
-            <p class="muted">此頁將彙整購物車所有品項一起送出。</p>
-          </form>
-        </div>
-
-        <aside class="card" style="height:max-content;position:sticky;top:72px">
-          <h4>結帳摘要</h4>
-          <div id="checkout-summary" class="muted"></div>
-        </aside>
+      <div class="container" id="menu-list">
+        <p>讀取中...</p>
       </div>
     </section>
+
+    <section id="product-detail"></section>
   </main>
 
-  <footer class="site-footer">
-    <div class="container">
-      <p>© 206 班校慶園遊會</p>
-    </div>
-  </footer>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getDatabase, ref, push } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
-  <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-  import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+// Firebase 配置
+const firebaseConfig = {
+  apiKey: "AIzaSyAk6JPL61gRlRtLP7926iAfbSr05O0AM9s",
+  authDomain: "nhshfestival.firebaseapp.com",
+  databaseURL: "https://nhshfestival-default-rtdb.firebaseio.com",
+  projectId: "nhshfestival",
+  storageBucket: "nhshfestival.firebasestorage.app",
+  messagingSenderId: "337149505249",
+  appId: "1:337149505249:web:4e81a826911c078fd811a0"
+};
 
-  // Firebase 配置
-  const firebaseConfig = {
-    apiKey: "AIzaSyAk6JPL61gRlRtLP7926iAfbSr05O0AM9s",
-    authDomain: "nhshfestival.firebaseapp.com",
-    databaseURL: "https://nhshfestival-default-rtdb.firebaseio.com",
-    projectId: "nhshfestival",
-    storageBucket: "nhshfestival.firebasestorage.app",
-    messagingSenderId: "337149505249",
-    appId: "1:337149505249:web:4e81a826911c078fd811a0"
-  };
+const app = initializeApp(firebaseConfig);
+const dbRT = getDatabase(app);
 
-  const app = initializeApp(firebaseConfig);
-  const dbRT = getDatabase(app);
+// ------------------ 購物車 ------------------
+function readOrders() { 
+  return JSON.parse(localStorage.getItem('class206_orders_v2') || '[]'); 
+}
 
-  // ------------------ 購物車 ------------------
-  function readOrders() { 
-    return JSON.parse(localStorage.getItem('class206_orders_v2') || '[]'); 
-  }
+function syncCartBadge() {
+  const badge = document.getElementById('cart-badge');
+  if (!badge) return;
+  const orders = readOrders();
+  let count = 0;
+  orders.forEach(o => o.items.forEach(i => count += i.qty));
+  badge.textContent = count;
+}
 
-  function syncCartBadge() {
-    const badge = document.getElementById('cart-badge');
-    if (!badge) return;
-    const orders = readOrders();
-    let count = 0;
-    orders.forEach(o => o.items.forEach(i => count += i.qty));
-    badge.textContent = count;
-  }
+let products = [];
 
-  let products = [];
-
-  async function loadProducts() {
-    try {
-      const snapshot = await get(ref(dbRT, 'products'));
-      if (snapshot.exists()) {
-        products = Object.entries(snapshot.val()).map(([id, data]) => ({ id, ...data }));
-        renderCheckoutSummary();
-      } else {
-        document.getElementById('checkout-summary').innerHTML = '<p>目前沒有商品</p>';
-      }
-    } catch (err) {
-      console.error(err);
-      document.getElementById('checkout-summary').innerHTML = '<p>讀取商品失敗</p>';
+async function loadProducts() {
+  try {
+    const snapshot = await get(ref(dbRT, 'products'));
+    if (snapshot.exists()) {
+      products = Object.entries(snapshot.val()).map(([id, data]) => ({ id, ...data }));
+      renderCheckoutSummary();
+    } else {
+      document.getElementById('checkout-summary').innerHTML = '<p>目前沒有商品</p>';
     }
+  } catch (err) {
+    console.error(err);
+    document.getElementById('checkout-summary').innerHTML = '<p>讀取商品失敗</p>';
+  }
+}
+
+function renderCheckoutSummary() {
+  const summary = document.getElementById('checkout-summary');
+  summary.innerHTML = '';
+  const orders = readOrders();
+  if (orders.length === 0) {
+    summary.innerHTML = '<p>購物車是空的</p>';
+    return;
   }
 
-  function renderCheckoutSummary() {
-    const summary = document.getElementById('checkout-summary');
-    summary.innerHTML = '';
+  let total = 0;
+
+  orders.forEach(order => {
+    order.items.forEach(itemOrder => {
+      const product = products.find(p => p.id === itemOrder.id);
+      if (!product) return;
+
+      const row = document.createElement('div');
+      row.style.display = 'flex';
+      row.style.justifyContent = 'space-between';
+      row.style.marginBottom = '4px';
+      row.innerHTML = `
+        <span>${product.name} x ${itemOrder.qty}</span>
+        <span>$${product.price * itemOrder.qty}</span>
+      `;
+      summary.appendChild(row);
+
+      total += product.price * itemOrder.qty;
+    });
+  });
+
+  const totalRow = document.createElement('div');
+  totalRow.style.marginTop = '8px';
+  totalRow.style.fontWeight = '700';
+  totalRow.textContent = `總金額：$${total}`;
+  summary.appendChild(totalRow);
+}
+
+// ------------------ 表單送出 ------------------
+document.addEventListener('DOMContentLoaded', () => {
+  loadProducts();
+  syncCartBadge();
+
+  const form = document.getElementById('checkout-form');
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const formData = new FormData(form);
     const orders = readOrders();
+
     if (orders.length === 0) {
-      summary.innerHTML = '<p>購物車是空的</p>';
+      alert("購物車是空的，無法下單！");
       return;
     }
 
-    let total = 0;
+    const orderData = {
+      customerName: formData.get('customerName'),
+      contact: formData.get('contact'),
+      pickupTime: formData.get('pickupTime'),
+      note: formData.get('note'),
+      items: orders,
+      createdAt: Date.now()
+    };
 
-    orders.forEach(order => {
-      order.items.forEach(itemOrder => {
-        const product = products.find(p => p.id === itemOrder.id);
-        if (!product) return;
-
-        const row = document.createElement('div');
-        row.style.display = 'flex';
-        row.style.justifyContent = 'space-between';
-        row.style.marginBottom = '4px';
-        row.innerHTML = `
-          <span>${product.name} x ${itemOrder.qty}</span>
-          <span>$${product.price * itemOrder.qty}</span>
-        `;
-        summary.appendChild(row);
-
-        total += product.price * itemOrder.qty;
-      });
-    });
-
-    const totalRow = document.createElement('div');
-    totalRow.style.marginTop = '8px';
-    totalRow.style.fontWeight = '700';
-    totalRow.textContent = `總金額：$${total}`;
-    summary.appendChild(totalRow);
-  }
-
-  document.addEventListener('DOMContentLoaded', () => {
-    loadProducts();
-    syncCartBadge();
-
-    document.getElementById('checkout-form').addEventListener('submit', e => {
-      e.preventDefault();
-      const formData = new FormData(e.target);
-      const orderData = {
-        customerName: formData.get('customerName'),
-        contact: formData.get('contact'),
-        pickupTime: formData.get('pickupTime'),
-        note: formData.get('note'),
-        items: readOrders()
-      };
-      console.log('送出訂單：', orderData);
-      alert('訂單已送出！');
+    try {
+      await push(ref(dbRT, 'orders'), orderData);
+      alert('訂單已成功送出！');
       localStorage.removeItem('class206_orders_v2');
       renderCheckoutSummary();
       syncCartBadge();
-      e.target.reset();
-    });
+      form.reset();
+    } catch (err) {
+      console.error(err);
+      alert('訂單送出失敗，請稍後再試。');
+    }
   });
+});
 </script>
 
 </body>
