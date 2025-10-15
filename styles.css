@@ -12,6 +12,32 @@
   --brand-font: "Noto Sans TC", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
 }
 
+/* ===================== 自適應裝置 ===================== */
+/* --- 響應式設計：針對手機等窄螢幕裝置 --- */
+@media (max-width: 768px) {
+  main {
+    padding: 12px; /* 在手機上稍微減少邊距 */
+  }
+
+  .status-columns {
+    flex-direction: column; /* 這是關鍵！將欄位從水平排列改為垂直堆疊 */
+    gap: 12px;
+  }
+
+  .status-col {
+    max-height: none; /* 在垂直堆疊時，取消最大高度限制，讓內容自然延伸 */
+    overflow-y: visible; /* 移除內部滾動條 */
+  }
+
+  header {
+    font-size: 20px; /* 標題字體稍微縮小 */
+  }
+
+  .time-title {
+    font-size: 18px; /* 時段標題字體稍微縮小 */
+  }
+}
+
 /* ===================== 全局 ===================== */
 * { box-sizing: border-box; }
 html, body { 
@@ -151,28 +177,3 @@ html, body { height: 100%; margin: 0; display: flex; flex-direction: column; }
 main { flex: 1; }
 #menu-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; justify-content: center; }
 
-/* ===================== 自適應裝置 ===================== */
-/* --- 響應式設計：針對手機等窄螢幕裝置 --- */
-@media (max-width: 768px) {
-  main {
-    padding: 12px; /* 在手機上稍微減少邊距 */
-  }
-
-  .status-columns {
-    flex-direction: column; /* 這是關鍵！將欄位從水平排列改為垂直堆疊 */
-    gap: 12px;
-  }
-
-  .status-col {
-    max-height: none; /* 在垂直堆疊時，取消最大高度限制，讓內容自然延伸 */
-    overflow-y: visible; /* 移除內部滾動條 */
-  }
-
-  header {
-    font-size: 20px; /* 標題字體稍微縮小 */
-  }
-
-  .time-title {
-    font-size: 18px; /* 時段標題字體稍微縮小 */
-  }
-}
