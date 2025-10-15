@@ -159,7 +159,7 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
 // 狀態對照表
-const STATUS = ["未製作", "待取餐", "已取餐"];
+const STATUS = ["製作中", "待取餐", "已取餐"];
 
 const orderArea = document.getElementById("order-area");
 
@@ -191,7 +191,7 @@ function renderOrders(data) {
     block.innerHTML = `<div class="time-title">⏰ ${time}</div>
     <div class="status-columns">
       <div class="status-col" id="col-new-${time.replace(/\s+/g, '')}">
-        <h3>未製作</h3>
+        <h3>製作中</h3>
       </div>
       <div class="status-col" id="col-ready-${time.replace(/\s+/g, '')}">
         <h3>待取餐</h3>
@@ -231,7 +231,7 @@ function renderOrderCard(order, time) {
     <div class="order-footer">
       <span>💰 總金額：$${total}</span>
       <div>
-        ${order.status !== "未製作" ? `<button class="btn-back">⬅ 上一階段</button>` : ""}
+        ${order.status !== "製作中" ? `<button class="btn-back">⬅ 上一階段</button>` : ""}
         ${order.status !== "已取餐" ? `<button class="btn-next">下一階段 ➡</button>` : ""}
       </div>
     </div>
@@ -243,7 +243,7 @@ function renderOrderCard(order, time) {
   if (nextBtn) nextBtn.onclick = () => changeStatus(order.id, order.status, 1);
   if (backBtn) backBtn.onclick = () => changeStatus(order.id, order.status, -1);
 
-  if (order.status === "未製作") colNew.appendChild(card);
+  if (order.status === "製作中") colNew.appendChild(card);
   else if (order.status === "待取餐") colReady.appendChild(card);
   else colDone.appendChild(card);
 }
