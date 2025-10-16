@@ -164,7 +164,7 @@ function renderOrderCard(order,time){
     : 0;
 
   // 號碼牌改成讀取 order.ticket
-  const ticket = order.ticket || "未設定號碼牌";
+  const ticket = order.orderNumber || "未設定號碼牌";
 
   card.innerHTML=`<div class="order-header">
       <span>號碼牌：<strong>${ticket}</strong></span>
@@ -219,3 +219,4 @@ function renderInventory(products){
 </script>
 </body>
 </html>
+
