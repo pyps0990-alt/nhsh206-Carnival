@@ -38,9 +38,47 @@
       border-radius: 6px;
       padding: 4px 8px;
     }
+
+    /* ======= 加入購物車提示 ======= */
+    .added-tip { 
+      position: fixed; top: 20%; left: 50%; transform: translateX(-50%) scale(0);
+      background: var(--primary); color: #f5f5ef; padding: 8px 14px; border-radius: 12px; font-weight: 700;
+      opacity: 0; pointer-events: none; transition: opacity .4s ease, transform .4s ease; z-index: 9999; 
+    }
+    .added-tip.show { 
+      opacity: 1; transform: translateX(-50%) scale(1); 
+    }
+
+    /* ======= 左上角浮動訂單動畫 ======= */
+    #active-orders-banner {
+      display: none;
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      background: #ffeaa7;
+      padding: 12px 16px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      z-index: 999;
+    }
   </style>
 </head>
 <body>
+  <!-- 浮動訂單動畫 -->
+  <div id="active-orders-banner">
+    <strong>正在進行中的訂單：</strong>
+    <span id="active-orders-info"></span>
+  </div>
+
+  <!-- 在 body 中加一個提示容器 -->
+<div id="added-tip" style="
+  position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+  background:#7a9d54; color:white; padding:10px 16px;
+  border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.2);
+  opacity:0; pointer-events:none; transition:0.4s;
+  z-index:9999;
+">已加入購物車 ✅</div>
+
   <header class="site-header">
     <div class="container header-inner">
       <div class="brand-wrap">
@@ -70,189 +108,155 @@
     <section id="product-detail"></section>
   </main>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyAk6JPL61gRlRtLP7926iAfbSr05O0AM9s",
-      authDomain: "nhshfestival.firebaseapp.com",
-      databaseURL: "https://nhshfestival-default-rtdb.firebaseio.com",
-      projectId: "nhshfestival",
-      storageBucket: "nhshfestival.firebasestorage.app",
-      messagingSenderId: "337149505249",
-      appId: "1:337149505249:web:4e81a826911c078fd811a0"
-    };
-    const app = initializeApp(firebaseConfig);
-    const dbRT = getDatabase(app);
+// ------------------ 顧客 ID ------------------
+let customerId = localStorage.getItem('customerId');
+if (!customerId) {
+  customerId = 'c_' + Math.random().toString(36).slice(2,9);
+  localStorage.setItem('customerId', customerId);
+}
 
-    // ------------------ 購物車 ------------------
-    function genId() { return 'o_' + Math.random().toString(36).slice(2, 9); }
-    function readOrders() { return JSON.parse(localStorage.getItem('class206_orders_v2') || '[]'); }
-    function writeOrders(list){
-      localStorage.setItem('class206_orders_v2', JSON.stringify(list));
-      syncCartBadge();
-    }
-    function addToCart(itemId, qty = 1) {
-      const item = products.find(p => p.id === itemId);
-      if (!item) return;
-      if (item.stock < qty) {
-        alert(`庫存不足，目前剩 ${item.stock} 件`);
-        return;
-      }
+// ------------------ Firebase 初始化 ------------------
+const firebaseConfig = {
+  apiKey: "AIzaSyAk6JPL61gRlRtLP7926iAfbSr05O0AM9s",
+  authDomain: "nhshfestival.firebaseapp.com",
+  databaseURL: "https://nhshfestival-default-rtdb.firebaseio.com",
+  projectId: "nhshfestival",
+  storageBucket: "nhshfestival.firebasestorage.app",
+  messagingSenderId: "337149505249",
+  appId: "1:337149505249:web:4e81a826911c078fd811a0"
+};
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
 
-      const orders = readOrders();
-      const existingIndex = orders.findIndex(o => o.items.some(i => i.id === itemId));
+// 新增函式：顯示加入購物車提示
+function showAddedTip(){
+  const tip = document.getElementById('added-tip');
+  if(!tip) return;
+  tip.style.opacity = '1';
+  setTimeout(() => {
+    tip.style.opacity = '0';
+  }, 1200); // 1.2 秒後淡出
+}
 
-      if (existingIndex >= 0) {
-        const currentQty = orders[existingIndex].items[0].qty;
-        if (currentQty + qty > item.stock) {
-          alert(`庫存不足，最多還能購買 ${item.stock - currentQty} 件`);
-          return;
-        }
-        orders[existingIndex].items[0].qty += qty;
-      } else {
-        orders.push({ id: genId(), createdAt: Date.now(), items: [{ id: itemId, qty }] });
-      }
+// ------------------ 購物車 ------------------
+function readOrders() { 
+  return JSON.parse(localStorage.getItem('class206_orders_v2') || '[]'); 
+}
 
-      writeOrders(orders);
-      showAddedTip();
-    }
-    function syncCartBadge() {
-      const badge = document.getElementById('cart-badge');
-      if (!badge) return;
-      const orders = readOrders();
-      let count = 0;
-      orders.forEach(o => o.items.forEach(i => count += i.qty));
-      badge.textContent = count;
-    }
-    function showAddedTip() {
-      let tip = document.querySelector('.added-tip');
-      if (!tip) {
-        tip = document.createElement('div');
-        tip.className = 'added-tip';
-        tip.textContent = '已加入購物車';
-        document.body.appendChild(tip);
-      }
-      tip.classList.add('show');
-      setTimeout(() => tip.classList.remove('show'), 1200);
-    }
+function writeOrders(list){ 
+  localStorage.setItem('class206_orders_v2', JSON.stringify(list)); 
+  syncCartBadge(); 
+}
 
-    // ------------------ 商品列表 ------------------
-    let products = [];
+function syncCartBadge(){
+  const badge = document.getElementById('cart-badge');
+  if (!badge) return;
+  const orders = readOrders();
+  let count = 0;
+  orders.forEach(o => o.items.forEach(i => count += i.qty));
+  badge.textContent = count;
+}
 
-    function renderMenu() {
-      const wrap = document.getElementById('menu-list');
-      wrap.innerHTML = '';
-      products.forEach(item => {
-        const card = document.createElement('article');
-        card.className = 'card product-card';
-        card.innerHTML = `
-          <div style="position:relative;border-radius:10px;overflow:hidden;margin:-6px -6px 10px;border:1px solid rgba(255,255,255,.06)">
-            <img src="${item.img}" alt="${item.name}" style="width:100%;height:140px;object-fit:cover;">
-            ${item.hot ? '<span class="hot-badge">熱銷</span>' : ''}
-            <span class="price-badge">$${item.price}</span>
-          </div>
-          <h4>${item.name}</h4>
-          <p class="muted">${item.desc}</p>
-          <p class="muted">庫存：${item.stock}</p>
-          <div class="qty-control" data-id="${item.id}">
-            <button class="btn-decrease">-</button>
-            <span class="qty">1</span>
-            <button class="btn-increase">+</button>
-          </div>
-          <button class="btn primary" data-add="${item.id}">加入</button>
-          <button class="btn" data-detail="${item.id}">詳情</button>
-        `;
-        wrap.appendChild(card);
-      });
+// ------------------ 商品列表 ------------------
+let products = [];
 
-      wrap.addEventListener('click', e => {
-        const control = e.target.closest('.qty-control');
-        if (control) {
-          const id = control.getAttribute('data-id');
-          const span = control.querySelector('.qty');
-          let qty = Number(span.textContent);
-          const item = products.find(p => p.id === id);
+function renderMenu(){
+  const wrap = document.getElementById('menu-list');
+  wrap.innerHTML = '';
+  products.forEach(item => {
+    const card = document.createElement('article');
+    card.className = 'card product-card';
+    card.innerHTML = `
+      <div style="position:relative;border-radius:10px;overflow:hidden;margin:-6px -6px 10px;border:1px solid rgba(255,255,255,.06)">
+        <img src="${item.img}" alt="${item.name}" style="width:100%;height:140px;object-fit:cover;">
+        ${item.hot ? '<span class="hot-badge">熱銷</span>' : ''}
+        <span class="price-badge">$${item.price}</span>
+      </div>
+      <h4>${item.name}</h4>
+      <p class="muted">${item.desc}</p>
+      <p class="muted">庫存：${item.stock}</p>
+      <div class="qty-control" data-id="${item.id}">
+        <button class="btn-decrease">-</button>
+        <span class="qty">1</span>
+        <button class="btn-increase">+</button>
+      </div>
+      <button class="btn primary" data-add="${item.id}">加入</button>
+      <button class="btn" data-detail="${item.id}">詳情</button>
+    `;
+    wrap.appendChild(card);
+  });
 
-          if (e.target.classList.contains('btn-increase')) {
-            if (qty < item.stock) qty++;
-          } else if (e.target.classList.contains('btn-decrease')) {
-            if (qty > 1) qty--;
-          }
-          span.textContent = qty;
-        }
-
-        const btnAdd = e.target.closest('button[data-add]');
-        if (btnAdd) {
-          const id = btnAdd.getAttribute('data-add');
-          const qty = Number(btnAdd.closest('.card').querySelector('.qty').textContent);
-          addToCart(id, qty);
-        }
-
-        const btnDetail = e.target.closest('button[data-detail]');
-        if (btnDetail) {
-          showProductDetail(btnDetail.getAttribute('data-detail'));
-        }
-      });
+  wrap.addEventListener('click', e => {
+    const control = e.target.closest('.qty-control');
+    if (control){
+      const id = control.dataset.id;
+      const span = control.querySelector('.qty');
+      let qty = Number(span.textContent);
+      const item = products.find(p => p.id === id);
+      if (e.target.classList.contains('btn-increase')) qty = Math.min(qty+1, item.stock);
+      if (e.target.classList.contains('btn-decrease')) qty = Math.max(qty-1, 1);
+      span.textContent = qty;
     }
 
-    function showProductDetail(itemId) {
-      const item = products.find(p => p.id === itemId);
-      if (!item) return;
-
-      const detail = document.getElementById('product-detail');
-      detail.innerHTML = `
-        <div class="detail-card">
-          <button class="btn" id="back-menu">&lt; 返回</button>
-          <img src="${item.img}" alt="${item.name}">
-          <h2>${item.name}</h2>
-          <p class="muted">${item.desc}</p>
-          <p class="price-badge">$${item.price}</p>
-          <p class="muted">庫存：${item.stock}</p>
-          <div class="qty-control" data-id="${item.id}">
-            <button class="btn-decrease">-</button>
-            <span class="qty">1</span>
-            <button class="btn-increase">+</button>
-          </div>
-          <button class="btn primary" id="detail-add">加入購物車</button>
-        </div>
-      `;
-      detail.style.display = 'block';
-      document.getElementById('menu-list').style.display = 'none';
-
-      const span = detail.querySelector('.qty');
-      const increase = detail.querySelector('.btn-increase');
-      const decrease = detail.querySelector('.btn-decrease');
-
-      increase.onclick = () => { if(Number(span.textContent)<item.stock) span.textContent = Number(span.textContent)+1; };
-      decrease.onclick = () => { if(Number(span.textContent)>1) span.textContent = Number(span.textContent)-1; };
-
-      document.getElementById('detail-add').onclick = () => {
-        const qty = Number(span.textContent);
-        addToCart(item.id, qty);
-      };
-
-      document.getElementById('back-menu').onclick = () => {
-        detail.style.display = 'none';
-        document.getElementById('menu-list').style.display = 'block';
-      };
+    const btnAdd = e.target.closest('button[data-add]');
+    if (btnAdd){
+      const id = btnAdd.dataset.add;
+      const qty = Number(btnAdd.closest('.card').querySelector('.qty').textContent);
+      addToCart(id, qty);
     }
+  });
+}
 
-    function loadProductsRealtime() {
-      const productsRef = ref(dbRT, 'products');
-      onValue(productsRef, snapshot => {
-        const data = snapshot.val() || {};
-        products = Object.entries(data).map(([id, d]) => ({ id, ...d }));
-        renderMenu();
-        syncCartBadge();
-      });
+// ------------------ 加入購物車 ------------------
+function addToCart(itemId, qty = 1){
+  const item = products.find(p => p.id === itemId);
+  if (!item) return;
+  if (item.stock < qty){ 
+    alert(`庫存不足，目前剩 ${item.stock} 件`); 
+    return; 
+  }
+
+  const orders = readOrders();
+  const existingIndex = orders.findIndex(o => o.items.some(i => i.id === itemId));
+  if (existingIndex >= 0){
+    const currentQty = orders[existingIndex].items[0].qty;
+    if (currentQty + qty > item.stock){
+      alert(`庫存不足，最多還能購買 ${item.stock - currentQty} 件`);
+      return;
     }
-
-    document.addEventListener('DOMContentLoaded', () => {
-      loadProductsRealtime();
-      syncCartBadge();
+    orders[existingIndex].items[0].qty += qty;
+  } else {
+    orders.push({
+      id: 'o_' + Math.random().toString(36).slice(2,9),
+      createdAt: Date.now(),
+      items: [{id: itemId, qty}],
+      status: '準備中'
     });
-  </script>
+  }
+  writeOrders(orders);
+  showAddedTip(); // <-- 加在這裡
+}
+
+// ------------------ 讀取 Firebase ------------------
+function loadProductsRealtime(){
+  const productsRef = ref(db, 'products');
+  onValue(productsRef, snapshot => {
+    const data = snapshot.val() || {};
+    products = Object.entries(data).map(([id,d]) => ({id, ...d}));
+    renderMenu();
+    syncCartBadge();
+  });
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  loadProductsRealtime();
+  syncCartBadge();
+});
+
+</script>
 </body>
 </html>

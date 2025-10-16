@@ -1,95 +1,172 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="styles.css">
-  <link rel="icon" href="飲ㄐㄩ啦.ico" type="image/x-icon">
-  <title>結帳</title>
-  <style>
-    .checkout-summary {
-      background: var(--panel);
-      border-radius: 10px;
-      padding: 12px;
-      margin: 16px auto;
-      color: var(--text);
-      font-weight: 600;
-      max-width: 600px;
-    }
-
-    .qty-control {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      justify-content: center;
-      margin-top: 6px;
-    }
-    .qty-control button {
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
-      border: none;
-      background: var(--panel);
-      color: var(--text);
-      font-weight: 700;
-      font-size: 18px;
-      cursor: pointer;
-      transition: filter .2s;
-    }
-    .qty-control button:hover { filter: brightness(1.2); }
-    .qty-control .qty {
-      min-width: 24px;
-      text-align: center;
-      font-weight: 700;
-      font-size: 16px;
-      color: var(--text);
-      background: var(--bg);
-      border-radius: 6px;
-      padding: 4px 8px;
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="飲ㄐㄩ啦.ico" type="image/x-icon">
+<title>結帳</title>
+<style>
+  .order-progress {
+    height: 16px;
+    background: #dfe6e9;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-top: 6px;
+    position: relative;
+  }
+  .order-progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #0984e3 0%, #74b9ff 50%, #0984e3 100%);
+    background-size: 200% 100%;
+    animation: float 2s linear infinite;
+    text-align: center;
+    color: white;
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: bold;
+    transition: width 0.5s ease;
+  }
+  @keyframes float {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+  .checkout-summary {
+    background: var(--panel);
+    border-radius: 10px;
+    padding: 12px;
+    margin: 16px auto;
+    color: var(--text);
+    font-weight: 600;
+    max-width: 600px;
+  }
+  .qty-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 6px;
+  }
+  .qty-control button {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: none;
+    background: var(--panel);
+    color: var(--text);
+    font-weight: 700;
+    font-size: 18px;
+    cursor: pointer;
+    transition: filter .2s;
+  }
+  .qty-control button:hover { filter: brightness(1.2); }
+  .qty-control .qty {
+    min-width: 24px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--text);
+    background: var(--bg);
+    border-radius: 6px;
+    padding: 4px 8px;
+  }
+  #active-orders-banner {
+    display:none;
+    position:fixed;
+    top:100px;
+    right:16px;
+    background:#ffeaa7;
+    padding:12px 16px;
+    border-radius:8px;
+    box-shadow:0 2px 6px rgba(0,0,0,0.2);
+    z-index:999;
+    max-width:300px;
+  }
+  #order-sent-tip {
+    position:fixed;
+    bottom:20px;
+    left:50%;
+    transform:translateX(-50%) translateY(0);
+    background:#0984e3;
+    color:white;
+    padding:10px 16px;
+    border-radius:8px;
+    box-shadow:0 2px 6px rgba(0,0,0,0.2);
+    opacity:0;
+    pointer-events:none;
+    transition: transform 0.6s ease, opacity 0.6s ease;
+    z-index:9999;
+    font-weight:600;
+  }
+</style>
 </head>
 <body>
-  <header class="site-header">
-    <div class="container header-inner">
-      <div class="brand-wrap">
-        <h1 class="brand">飲ㄐㄩ啦</h1>
-      </div>
-      <nav class="nav">
-        <a href="index.html">返回首頁</a>
-        <a href="cart.html" class="cart-link" id="cart-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="9" cy="21" r="1"></circle>
-            <circle cx="20" cy="21" r="1"></circle>
-            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
-          </svg>
-          <span id="cart-badge" class="cart-badge">0</span>
-        </a>
-      </nav>
-    </div>
-  </header>
 
-  <main>
-    <section class="section">
-      <div class="container">
-        <div id="checkout-summary">讀取中...</div>
+<!-- 飛出提示 -->
+<div id="order-sent-tip">✅ 訂單已送出！</div>
 
-        <form id="checkout-form">
-          <label>姓名：<input type="text" name="customerName" required></label><br>
-          <label>聯絡方式：<input type="text" name="contact" required></label><br>
-          <label>取餐時間：<input type="time" name="pickupTime" required></label><br>
-          <label>備註：<textarea name="note"></textarea></label><br>
-          <button type="submit">送出訂單</button>
-        </form>
-      </div>
-    </section>
-  </main>
+<!-- 浮動訂單狀態 -->
+<div id="active-orders-banner">
+  <strong>正在進行中的訂單：</strong>
+  <span id="active-orders-info"></span>
+</div>
+
+<header class="site-header">
+<div class="container header-inner">
+  <div class="brand-wrap">
+    <h1 class="brand">飲ㄐㄩ啦</h1>
+  </div>
+  <nav class="nav">
+    <a href="index.html">返回首頁</a>
+    <a href="cart.html" class="cart-link" id="cart-icon">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="9" cy="21" r="1"></circle>
+        <circle cx="20" cy="21" r="1"></circle>
+        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+      </svg>
+      <span id="cart-badge" class="cart-badge">0</span>
+    </a>
+  </nav>
+</div>
+</header>
+
+<main>
+<section class="section">
+  <div class="container">
+    <div id="checkout-summary">讀取中...</div>
+
+    <form id="checkout-form">
+      <label>姓名：<input type="text" name="customerName" required></label><br>
+      <label>聯絡方式：<input type="text" name="contact" required></label><br>
+      <label>取餐時間：
+        <select name="pickupTime" required>
+          <option value="">請選擇時段</option>
+          <option value="9:30~10:30">9:30~10:30</option>
+          <option value="10:30~11:30">10:30~11:30</option>
+          <option value="11:30~12:20">11:30~12:20</option>
+          <option value="12:20~12:50">12:20~12:50</option>
+        </select>
+      </label><br>
+      <label>備註：<textarea name="note"></textarea></label><br>
+      <button type="submit" id="checkout-submit">送出訂單</button>
+    </form>
+  </div>
+</section>
+</main>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
 import { getDatabase, ref, push, get, update } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
-// Firebase 設定
+// ------------------ 顧客 ID ------------------
+let customerId = localStorage.getItem('customerId');
+if(!customerId){
+  customerId = 'c_' + Math.random().toString(36).slice(2,9);
+  localStorage.setItem('customerId', customerId);
+}
+
+// ------------------ Firebase ------------------
 const firebaseConfig = {
   apiKey: "AIzaSyAk6JPL61gRlRtLP7926iAfbSr05O0AM9s",
   authDomain: "nhshfestival.firebaseapp.com",
@@ -99,15 +176,13 @@ const firebaseConfig = {
   messagingSenderId: "337149505249",
   appId: "1:337149505249:web:4e81a826911c078fd811a0"
 };
-
 const app = initializeApp(firebaseConfig);
-const dbRT = getDatabase(app);
+const db = getDatabase(app);
 
-// ------------------ 購物車 ------------------
+// ------------------ 購物車功能 ------------------
 function readOrders() {
   return JSON.parse(localStorage.getItem('class206_orders_v2') || '[]');
 }
-
 function syncCartBadge() {
   const badge = document.getElementById('cart-badge');
   if (!badge) return;
@@ -117,112 +192,255 @@ function syncCartBadge() {
   badge.textContent = count;
 }
 
-let products = [];
-
+// ------------------ 渲染購物車 ------------------
 async function loadProducts() {
   try {
-    const snapshot = await get(ref(dbRT, 'products'));
-    if (snapshot.exists()) {
-      products = Object.entries(snapshot.val()).map(([id, data]) => ({ id, ...data }));
-      renderCheckoutSummary();
-    } else {
-      document.getElementById('checkout-summary').innerHTML = '<p>目前沒有商品</p>';
-    }
-  } catch (err) {
-    console.error(err);
-    document.getElementById('checkout-summary').innerHTML = '<p>讀取商品失敗</p>';
+    const snapshot = await get(ref(db,'products'));
+    window.products = snapshot.exists()? Object.entries(snapshot.val()).map(([id,data])=>({id,...data})) : [];
+    renderCheckoutSummary();
+  } catch(e) {
+    console.error(e);
+    document.getElementById('checkout-summary').innerHTML='<p>讀取商品失敗</p>';
   }
 }
 
 function renderCheckoutSummary() {
   const summary = document.getElementById('checkout-summary');
-  summary.innerHTML = '';
+  summary.innerHTML='';
   const orders = readOrders();
-  if (orders.length === 0) {
-    summary.innerHTML = '<p>購物車是空的</p>';
-    return;
-  }
+  if(!orders.length){ summary.innerHTML='<p>購物車是空的</p>'; return; }
 
   let total = 0;
   orders.forEach(order => {
     order.items.forEach(itemOrder => {
-      const product = products.find(p => p.id === itemOrder.id);
-      if (!product) return;
-
+      const product = window.products.find(p=>p.id===itemOrder.id);
+      if(!product) return;
       const row = document.createElement('div');
-      row.style.display = 'flex';
-      row.style.justifyContent = 'space-between';
+      row.style.display='flex'; row.style.justifyContent='space-between'; row.style.alignItems='center'; row.style.marginBottom='6px';
       row.innerHTML = `
-        <span>${product.name} x ${itemOrder.qty}</span>
-        <span>$${product.price * itemOrder.qty}</span>
+        <span>${product.name}</span>
+        <div class="qty-control">
+          <button class="minus">-</button>
+          <span class="qty">${itemOrder.qty}</span>
+          <button class="plus">+</button>
+        </div>
+        <span>$<span class="item-total">${product.price*itemOrder.qty}</span></span>
       `;
       summary.appendChild(row);
-      total += product.price * itemOrder.qty;
+
+      const qtyEl = row.querySelector('.qty');
+      const itemTotalEl = row.querySelector('.item-total');
+
+      row.querySelector('.minus').onclick = ()=>{
+        if(itemOrder.qty>1){
+          itemOrder.qty--; qtyEl.textContent=itemOrder.qty;
+          itemTotalEl.textContent=product.price*itemOrder.qty;
+          updateLocalStorage(); updateTotal();
+        }
+      };
+      row.querySelector('.plus').onclick = ()=>{
+        if(itemOrder.qty<product.stock){
+          itemOrder.qty++; qtyEl.textContent=itemOrder.qty;
+          itemTotalEl.textContent=product.price*itemOrder.qty;
+          updateLocalStorage(); updateTotal();
+        } else alert("已達庫存上限！");
+      };
+
+      total+=product.price*itemOrder.qty;
     });
   });
-
   const totalRow = document.createElement('div');
-  totalRow.style.marginTop = '8px';
-  totalRow.style.fontWeight = '700';
-  totalRow.textContent = `總金額：$${total}`;
+  totalRow.style.fontWeight='700'; totalRow.style.marginTop='12px'; totalRow.id='total-amount';
+  totalRow.textContent=`總金額：$${total}`;
   summary.appendChild(totalRow);
 }
 
+function updateTotal() {
+  let total = 0;
+  const orders = readOrders();
+  orders.forEach(order => order.items.forEach(i=>{
+    const product = window.products.find(p=>p.id===i.id);
+    if(product) total+=i.qty*product.price;
+  }));
+  const totalEl = document.getElementById('total-amount');
+  if(totalEl) totalEl.textContent=`總金額：$${total}`;
+}
+
+function updateLocalStorage(){ localStorage.setItem('class206_orders_v2', JSON.stringify(readOrders())); }
+
+// ------------------ 飛出提示 ------------------
+function showOrderSentTip(button, orderNumber){
+  const tip = document.getElementById('order-sent-tip');
+  if(!tip) return;
+
+  // 設定文字
+  tip.textContent = `✅ 訂單 ${orderNumber} 已送出！`;
+
+  // 取得按鈕位置
+  const rect = button.getBoundingClientRect();
+  tip.style.transform = `translateX(-50%) translateY(${rect.top - window.innerHeight + 40}px)`;
+  tip.style.opacity = '1';
+
+  // 飛到底部中央
+  setTimeout(() => {
+    tip.style.transform = `translateX(-50%) translateY(0)`;
+  }, 50);
+
+  // 1.5秒後淡出
+  setTimeout(() => {
+    tip.style.opacity = '0';
+    tip.style.transform = `translateX(-50%) translateY(20px)`;
+  }, 1600);
+}
+
+// ------------------ 產生訂單號 ------------------
+async function generateOrderNumber() {
+  const snapshot = await get(ref(db,'orders'));
+  const orders = snapshot.exists()? Object.values(snapshot.val()):[];
+  const numbers = orders.map(o=>o.orderNumber).filter(n=>n.startsWith('A')).map(n=>parseInt(n.slice(1),10)).sort((a,b)=>b-a);
+  const next = numbers.length>0? numbers[0]+1 : 1;
+  return 'A'+next.toString().padStart(3,'0');
+}
+
 // ------------------ 表單送出 ------------------
-document.addEventListener('DOMContentLoaded', () => {
-  loadProducts();
-  syncCartBadge();
+document.addEventListener('DOMContentLoaded',()=>{
+  loadProducts(); syncCartBadge();
 
   const form = document.getElementById('checkout-form');
-  form.addEventListener('submit', async e => {
+  const submitBtn = document.getElementById('checkout-submit');
+
+  form.addEventListener('submit', async e=>{
     e.preventDefault();
     const formData = new FormData(form);
     const orders = readOrders();
+    if(!orders.length){ alert("購物車是空的，無法下單！"); return; }
 
-    if (orders.length === 0) {
-      alert("購物車是空的，無法下單！");
-      return;
-    }
-
-    const orderNumber = "ORD-" + Date.now().toString().slice(-5);
+    const orderNumber = await generateOrderNumber();
+    const ordersWithDetails = orders.map(order=>({
+      ...order,
+      items: order.items.map(i=>{
+        const product = window.products.find(p=>p.id===i.id);
+        return {id:i.id, name:product?.name||"未知商品", price:product?.price||0, qty:i.qty};
+      })
+    }));
 
     const orderData = {
       orderNumber,
+      customerId,
       customerName: formData.get('customerName'),
       contact: formData.get('contact'),
       pickupTime: formData.get('pickupTime'),
       note: formData.get('note'),
-      items: orders,
+      items: ordersWithDetails,
       createdAt: Date.now(),
-      status: "pending"
+      status: "製作中"
     };
 
     try {
-      await push(ref(dbRT, 'orders'), orderData);
+      await push(ref(db,'orders'), orderData);
 
       // 更新庫存
-      for (const order of orders) {
-        for (const item of order.items) {
-          const productRef = ref(dbRT, `products/${item.id}`);
+      for(const order of ordersWithDetails){
+        for(const item of order.items){
+          const productRef = ref(db, `products/${item.id}`);
           const snap = await get(productRef);
-          if (snap.exists()) {
-            const currentStock = snap.val().stock || 0;
-            await update(productRef, { stock: Math.max(0, currentStock - item.qty) });
+          if(snap.exists()){
+            const currentStock = snap.val().stock||0;
+            await update(productRef,{stock: Math.max(0,currentStock-item.qty)});
           }
         }
       }
 
-      alert('✅ 訂單已成功送出並更新庫存！');
+      // 飛出提示
+      showOrderSentTip(submitBtn, orderNumber);
+
       localStorage.removeItem('class206_orders_v2');
       renderCheckoutSummary();
       syncCartBadge();
       form.reset();
-
-    } catch (err) {
+      renderActiveOrders();
+    } catch(err){
       console.error(err);
       alert('❌ 訂單送出失敗，請稍後再試。');
     }
   });
+
+  // ------------------ 顯示進行中訂單，每10秒更新 ------------------
+  async function renderActiveOrders(){
+    const banner = document.getElementById('active-orders-banner');
+    const info = document.getElementById('active-orders-info');
+
+    let lastStatuses = {}; // 紀錄每個訂單上一次狀態
+
+    async function fetchAndRender(){
+      const snapshot = await get(ref(db,'orders'));
+      const allOrders = snapshot.exists()? Object.values(snapshot.val()):[];
+      const myOrders = allOrders.filter(o=>o.customerId===customerId);
+      info.innerHTML='';
+      if(myOrders.length>0){
+        banner.style.display='block';
+        myOrders.forEach(o=>{
+          const div = document.createElement('div');
+          div.style.marginTop='6px';
+          div.style.border='1px solid #ccc';
+          div.style.padding='6px 10px';
+          div.style.borderRadius='6px';
+          div.style.backgroundColor='#f9f9f9';
+
+          const title = document.createElement('div');
+          title.style.fontWeight='700';
+          title.textContent=`訂單 ${o.orderNumber} - ${new Date(o.createdAt).toLocaleTimeString()}`;
+          div.appendChild(title);
+
+          o.items.forEach(ord=>{
+            ord.items.forEach(it=>{
+              const itemDiv = document.createElement('div');
+              itemDiv.style.marginLeft='8px';
+              itemDiv.textContent=`${it.name} x ${it.qty} ($${it.price*it.qty})`;
+              div.appendChild(itemDiv);
+            });
+          });
+
+          const progress = document.createElement('div');
+          progress.className='order-progress';
+          const bar = document.createElement('div');
+          bar.className='order-progress-bar';
+          bar.style.fontWeight = '700';
+
+          if(o.status==='製作中'){
+            bar.style.width='33%';
+            bar.style.backgroundColor='#f39c12';
+          } else if(o.status==='待取餐'){
+            bar.style.width='66%';
+            bar.style.backgroundColor='#e74c3c';
+          } else if(o.status==='已取餐'){
+            bar.style.width='100%';
+            bar.style.backgroundColor='#2ecc71';
+          }
+          bar.textContent=o.status;
+          progress.appendChild(bar);
+          div.appendChild(progress);
+
+          info.appendChild(div);
+
+          // 狀態通知
+          if(lastStatuses[o.orderNumber] !== o.status){
+            if(o.status==='待取餐'){
+              alert(`📢 您的訂單 ${o.orderNumber} 已完成製作，可以前往取餐！`);
+            } else if(o.status==='已取餐'){
+              alert(`🙏 您的訂單 ${o.orderNumber} 已取餐，謝謝光臨！`);
+            }
+          }
+          lastStatuses[o.orderNumber] = o.status;
+        });
+      } else banner.style.display='none';
+    }
+
+    fetchAndRender();
+    setInterval(fetchAndRender, 10000);
+  }
+
+  renderActiveOrders();
 });
 </script>
 </body>

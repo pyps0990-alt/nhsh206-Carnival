@@ -1,5 +1,6 @@
 // ===================== Firebase 初始化 =====================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getDatabase, ref, onValue, push, update } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 import { getFirestore, collection, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
 // Firebase 配置
@@ -13,18 +14,14 @@ const firebaseConfig = {
   appId: "1:337149505249:web:4e81a826911c078fd811a0"
 };
 
-// 初始化 Firebase
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+const dbRealtime = getDatabase(app);
+const dbFirestore = getFirestore(app);
 
 // ===================== 工具函式 =====================
 function genId() { return 'o_' + Math.random().toString(36).slice(2, 9); }
-
-function readOrders() {
-  return JSON.parse(localStorage.getItem('class206_orders_v2') || '[]');
-}
-
-// (移除重複的 writeOrders 定義)
+function readOrders() { return JSON.parse(localStorage.getItem('class206_orders_v2') || '[]'); }
+function writeOrders(list){ localStorage.setItem('class206_orders_v2', JSON.stringify(list)); syncCartBadge(); }
 
 // ===================== 商品渲染 =====================
 let products = []; // 全域存放商品資料
@@ -108,23 +105,11 @@ function showProductDetail(itemId) {
 }
 
 // ===================== 購物車操作 =====================
-
-// 讀取本地購物車
-// (移除未使用的 orders 變數)
-
-// 儲存購物車
-function writeOrders(list){
-  localStorage.setItem('class206_orders_v2', JSON.stringify(list));
-  syncCartBadge();
-}
-
-// 加入購物車
 function addToCart(itemId, qty = 1) {
   const orders = readOrders();
   const existingIndex = orders.findIndex(o => o.items.some(i => i.id === itemId));
 
   if (existingIndex >= 0) {
-    // 商品已存在，累加數量
     orders[existingIndex].items[0].qty += qty;
   } else {
     orders.push({ id: genId(), createdAt: Date.now(), items: [{ id: itemId, qty }] });
@@ -134,7 +119,6 @@ function addToCart(itemId, qty = 1) {
   renderCart();
 }
 
-// 刪除購物車商品
 function removeFromCart(itemId) {
   let orders = readOrders();
   orders = orders.filter(o => !o.items.some(i => i.id === itemId));
@@ -142,7 +126,6 @@ function removeFromCart(itemId) {
   renderCart();
 }
 
-// 顯示購物車 Badge
 function syncCartBadge() {
   const badge = document.getElementById('cart-badge');
   if (!badge) return;
@@ -152,18 +135,12 @@ function syncCartBadge() {
   badge.textContent = count;
 }
 
-// 渲染購物車列表
 function renderCart() {
   const wrap = document.getElementById('cart-list');
   if (!wrap) return;
-
   const orders = readOrders();
   wrap.innerHTML = '';
-
-  if (orders.length === 0) {
-    wrap.innerHTML = '<p>購物車是空的</p>';
-    return;
-  }
+  if (orders.length === 0) { wrap.innerHTML = '<p>購物車是空的</p>'; return; }
 
   orders.forEach(order => {
     order.items.forEach(itemOrder => {
@@ -190,7 +167,6 @@ function renderCart() {
     });
   });
 
-  // 總金額
   const total = orders.reduce((sum, o) => sum + o.items.reduce((s, i) => {
     const p = products.find(pr => pr.id === i.id);
     return s + (p ? p.price * i.qty : 0);
@@ -202,17 +178,11 @@ function renderCart() {
   totalEl.textContent = '總金額：$' + total;
   wrap.appendChild(totalEl);
 
-  // 綁定刪除按鈕
   wrap.querySelectorAll('button[data-remove]').forEach(btn => {
-    btn.onclick = () => {
-      const id = btn.getAttribute('data-remove');
-      removeFromCart(id);
-    };
+    btn.onclick = () => { const id = btn.getAttribute('data-remove'); removeFromCart(id); };
   });
-
 }
 
-// 飛入購物車動畫
 function animateAddToCart(imgEl) {
   const cart = document.getElementById('cart-icon');
   if (!imgEl || !cart) return;
@@ -238,14 +208,9 @@ function animateAddToCart(imgEl) {
     flyImg.style.opacity = 0.7;
   }, 50);
 
-  flyImg.addEventListener('transitionend', () => {
-    flyImg.remove();
-    cart.classList.add('bounce');
-    setTimeout(() => cart.classList.remove('bounce'), 300);
-  });
+  flyImg.addEventListener('transitionend', () => { flyImg.remove(); cart.classList.add('bounce'); setTimeout(() => cart.classList.remove('bounce'), 300); });
 }
 
-// 加入提示
 function showAddedTip() {
   let tip = document.querySelector('.added-tip');
   if (!tip) {
@@ -258,118 +223,74 @@ function showAddedTip() {
   setTimeout(() => tip.classList.remove('show'), 1200);
 }
 
-// ===================== 結帳表單提交 =====================
+// ===================== 即時訂單摘要 =====================
+if (!document.getElementById('live-orders-wrap')) {
+  const liveWrap = document.createElement('div');
+  liveWrap.id = 'live-orders-wrap';
+  liveWrap.style = `
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    max-width: 300px;
+    z-index: 9999;
+    pointer-events: none;
+    font-family: sans-serif;
+  `;
+  document.body.appendChild(liveWrap);
+}
 
-document.getElementById('checkout-form')?.addEventListener('submit', async e => {
-  e.preventDefault();
-
-  const orders = readOrders();
-  if (orders.length === 0) {
-    alert('購物車是空的');
-    return;
-  }
-
-  const formData = new FormData(e.target);
-  const customerName = formData.get('customerName');
-  const contact = formData.get('contact');
-  const pickupTime = formData.get('pickupTime');
-  const note = formData.get('note');
-
-  // 整理訂單明細
-  const items = [];
-  orders.forEach(order => {
-    order.items.forEach(o => {
-      const product = products.find(p => p.id === o.id);
-      if (product) {
-        items.push({
-          id: product.id,
-          name: product.name,
-          price: product.price,
-          qty: o.qty
-        });
-      }
-    });
-  });
-
-  const orderData = {
-    customerName,
-    contact,
-    pickupTime,
-    note,
-    items,
-    createdAt: new Date().toISOString()
-  };
-
-  try {
-    // ===================== Firebase =====================
-    await addDoc(collection(db, "orders"), orderData);
-
-    // 清空本地購物車
-    localStorage.removeItem('class206_orders_v2');
-    syncCartBadge();
-    renderCart();
-
-    // ===================== EmailJS =====================
-    await sendEmail(orderData);
-
-    alert('訂單已送出！確認信已發送');
-    window.location.href = 'index.html';
-
-  } catch (err) {
-    console.error(err);
-    alert('訂單送出失敗，請稍後再試');
-  }
+onValue(ref(dbRealtime, "orders"), snapshot => {
+  const data = snapshot.val() || {};
+  renderLiveOrders(data);
 });
 
-// ===================== EmailJS 發送函式 =====================
-async function sendEmail(order) {
-  if (typeof emailjs === 'undefined') return;
+function renderLiveOrders(data) {
+  const wrap = document.getElementById('live-orders-wrap');
+  if (!wrap) return;
 
-  const itemDetails = order.items.map(i => `${i.name} x ${i.qty} = $${i.price * i.qty}`).join('\n');
-  const orderTime = new Date(order.createdAt).toLocaleString('zh-TW', { hour12: false });
+  const ongoingOrders = Object.entries(data).filter(([id, order]) => order.status && order.status !== '已完成');
+  if (ongoingOrders.length === 0) { wrap.innerHTML = ''; return; }
 
-  const emailBody = `
-您好 ${order.customerName}：
-感謝您的訂購！以下是您的訂單明細：
+  const byTime = {};
+  ongoingOrders.forEach(([id, order]) => {
+    const time = order.pickupTime || '未指定';
+    if (!byTime[time]) byTime[time] = [];
+    byTime[time].push({ id, order });
+  });
 
-${itemDetails}
-
-下單時間: ${orderTime}
-取餐時段: ${order.pickupTime}
-備註: ${order.note || '無'}
-
-祝您用餐愉快！
-`;
-
-  await emailjs.send("YOUR_SERVICE_ID", "YOUR_TEMPLATE_ID", {
-    to_name: order.customerName,
-    to_email: order.contact,
-    message: emailBody
-  }, "YOUR_PUBLIC_KEY");
+  wrap.innerHTML = '';
+  Object.entries(byTime).forEach(([time, orders]) => {
+    const block = document.createElement('div');
+    block.style = "background: rgba(255,255,255,0.95); border:1px solid #ddd; border-radius:10px; padding:8px 12px; margin-bottom:8px; box-shadow:0 2px 6px rgba(0,0,0,0.15); pointer-events:auto; transition: transform 0.3s, opacity 0.3s;";
+    block.innerHTML = `<strong>⏰ ${time}</strong>`;
+    orders.forEach(({ id, order }) => {
+      const total = order.items?.reduce((sum, i) => sum + (i.price * i.qty || 0), 0) || 0;
+      const row = document.createElement('div');
+      row.textContent = `訂單 ${order.orderNumber || id} — 總金額 $${total}`;
+      block.appendChild(row);
+    });
+    wrap.appendChild(block);
+  });
 }
-// ===================== 第五部分：初始化 + Firebase 資料讀取 =====================
 
-// 讀取 Firebase 商品資料
+// ===================== 初始化 =====================
+document.addEventListener("DOMContentLoaded", () => {
+  loadProductsFromFirebase(); // 從 Firestore 讀取商品
+  renderCart();
+  syncCartBadge();
+});
+
+// ===================== Firestore 讀取商品 =====================
 async function loadProductsFromFirebase() {
   try {
-    const productsCol = collection(db, "products"); // 假設 Firebase 有一個 products collection
+    const productsCol = collection(dbFirestore, "products");
     const snapshot = await getDocs(productsCol);
     const firebaseProducts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-    // 更新本地 products 陣列
-    products.length = 0; // 清空舊商品
+    products.length = 0;
     firebaseProducts.forEach(p => products.push(p));
-
-    renderMenu();       // 重新渲染商品列表
-    syncCartBadge();    // 更新購物車 badge
+    renderMenu();
+    syncCartBadge();
   } catch (err) {
     console.error("讀取 Firebase 商品失敗:", err);
   }
 }
-
-// 初始化頁面
-document.addEventListener("DOMContentLoaded", () => {
-  loadProductsFromFirebase(); // 從 Firebase 載入商品
-  renderCart();               // 渲染購物車列表
-  syncCartBadge();            // 更新購物車 badge
-});

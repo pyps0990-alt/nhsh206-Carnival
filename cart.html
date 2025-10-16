@@ -5,7 +5,99 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="styles.css">
   <link rel="icon" href="飲ㄐㄩ啦.ico" type="image/x-icon">
-  <title>購物車</title>
+  <title>購物車 | 飲ㄐㄩ啦</title>
+  <style>
+    /* ---------- 訂單進度條 ---------- */
+    .order-progress {
+      height: 16px;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-top: 6px;
+      background: #dfe6e9;
+    }
+    .order-progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #0984e3 0%, #74b9ff 50%, #0984e3 100%);
+      background-size: 200% 100%;
+      animation: float 2s linear infinite;
+      text-align: center;
+      color: white;
+      font-size: 12px;
+      line-height: 16px;
+      font-weight: bold;
+      transition: width 0.5s ease;
+    }
+    @keyframes float {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* ---------- 即時訂單通知 ---------- */
+    #active-orders-banner {
+      display: none;
+      position: fixed;
+      top: 100px;
+      right: 16px;
+      background: #ffeaa7;
+      padding: 12px 16px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      z-index: 999;
+      max-width: 300px;
+    }
+
+    .added-tip {
+      position: fixed;
+      top: 20%;
+      left: 50%;
+      transform: translateX(-50%) scale(0);
+      background: var(--primary);
+      color: #f5f5ef;
+      padding: 8px 14px;
+      border-radius: 12px;
+      font-weight: 700;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .4s ease, transform .4s ease;
+      z-index: 9999;
+    }
+    .added-tip.show {
+      opacity: 1;
+      transform: translateX(-50%) scale(1);
+    }
+
+    .product-card {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      margin-bottom: 8px;
+    }
+    .qty-control {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .qty-control button {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: none;
+      background: var(--panel);
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 16px;
+    }
+    .qty-control .qty {
+      min-width: 24px;
+      text-align: center;
+      font-weight: 700;
+      font-size: 16px;
+    }
+  </style>
 </head>
 <body>
   <header class="site-header">
@@ -14,7 +106,8 @@
         <h1 class="brand">飲ㄐㄩ啦</h1>
       </div>
       <nav class="nav">
-        <a href="products.html">返回選購</a>
+        <a href="index.html">首頁</a>
+        <a href="products.html">商品列表</a>
         <a href="cart.html" class="cart-link" id="cart-icon">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="9" cy="21" r="1"></circle>
@@ -27,168 +120,254 @@
     </div>
   </header>
 
+  <!-- 左上角浮動訂單 -->
+  <div id="active-orders-banner">
+    <strong>正在進行中的訂單：</strong>
+    <div id="active-orders-info"></div>
+  </div>
+
+  <!-- 加入購物車提示 -->
+  <div class="added-tip">已加入購物車</div>
+
   <main>
     <section class="section">
-      <div class="container" style="display:grid;grid-template-columns:2fr 1fr;gap:16px">
-        <div id="cart-items">
-          <h3>購物車</h3>
+      <div class="container">
+        <h2>我的購物車</h2>
+        <div id="cart-list">讀取中...</div>
+        <div style="margin-top:16px;">
+          <button id="checkout-btn" class="btn primary">前往結帳</button>
         </div>
-
-        <aside class="card" style="height:max-content;position:sticky;top:72px">
-          <h4>訂單摘要</h4>
-          <div id="checkout-summary" style="display:grid;gap:8px"></div>
-          <div class="actions" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
-            <button type="button" id="clear-orders" class="btn danger">清除全部</button>
-            <a href="checkout.html" class="btn primary" style="margin-left:auto">前往付款</a>
-          </div>
-        </aside>
       </div>
     </section>
   </main>
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-    import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
-    // Firebase 配置
-    const firebaseConfig = {
-      apiKey: "AIzaSyAk6JPL61gRlRtLP7926iAfbSr05O0AM9s",
-      authDomain: "nhshfestival.firebaseapp.com",
-      databaseURL: "https://nhshfestival-default-rtdb.firebaseio.com",
-      projectId: "nhshfestival",
-      storageBucket: "nhshfestival.firebasestorage.app",
-      messagingSenderId: "337149505249",
-      appId: "1:337149505249:web:4e81a826911c078fd811a0"
-    };
+  <footer class="site-footer">
+    <div class="container">
+      <p>© 206 班校慶園遊會</p>
+    </div>
+  </footer>
 
-    const app = initializeApp(firebaseConfig);
-    const dbRT = getDatabase(app);
+  <script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getDatabase, ref, get, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
-    // ------------------ 購物車操作 ------------------
-    function genId() { return 'o_' + Math.random().toString(36).slice(2, 9); }
+// ------------------ 顧客 ID ------------------
+let customerId = localStorage.getItem('customerId');
+if(!customerId){
+  customerId = 'c_' + Math.random().toString(36).slice(2,9);
+  localStorage.setItem('customerId', customerId);
+}
 
-    function readOrders() { 
-      return JSON.parse(localStorage.getItem('class206_orders_v2') || '[]'); 
-    }
+// ------------------ Firebase 初始化 ------------------
+const firebaseConfig = {
+  apiKey: "AIzaSyAk6JPL61gRlRtLP7926iAfbSr05O0AM9s",
+  authDomain: "nhshfestival.firebaseapp.com",
+  databaseURL: "https://nhshfestival-default-rtdb.firebaseio.com",
+  projectId: "nhshfestival",
+  storageBucket: "nhshfestival.firebasestorage.app",
+  messagingSenderId: "337149505249",
+  appId: "1:337149505249:web:4e81a826911c078fd811a0"
+};
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
 
-    function writeOrders(list){
-      localStorage.setItem('class206_orders_v2', JSON.stringify(list));
-      renderCart();
-      syncCartBadge();
-    }
+// ------------------ 購物車功能 ------------------
+function readOrders() { return JSON.parse(localStorage.getItem('class206_orders_v2') || '[]'); }
+function writeOrders(list){
+  localStorage.setItem('class206_orders_v2', JSON.stringify(list));
+  syncCartBadge();
+}
+function syncCartBadge() {
+  const badge = document.getElementById('cart-badge');
+  if(!badge) return;
+  const orders = readOrders();
+  let count=0;
+  orders.forEach(o=>o.items.forEach(i=>count+=i.qty));
+  badge.textContent=count;
+}
 
-    function addToCart(itemId, qty = 1) {
-      const orders = readOrders();
-      const existingIndex = orders.findIndex(o => o.items.some(i => i.id === itemId));
-      if (existingIndex >= 0) {
-        orders[existingIndex].items[0].qty += qty;
-      } else {
-        orders.push({ id: genId(), createdAt: Date.now(), items: [{ id: itemId, qty }] });
-      }
-      writeOrders(orders);
-    }
+// ------------------ 商品資料 ------------------
+let products = [];
+async function loadProducts(){
+  try {
+    const snapshot = await get(ref(db,'products'));
+    products = snapshot.exists() ? Object.entries(snapshot.val()).map(([id,d])=>({id,...d})) : [];
+    renderCart();
+  } catch(e){
+    console.error(e);
+    const cartList = document.getElementById('cart-list');
+    if(cartList) cartList.innerHTML='<p>讀取商品失敗</p>';
+  }
+}
 
-    function removeFromCart(itemId) {
-      let orders = readOrders();
-      orders = orders.filter(o => !o.items.some(i => i.id === itemId));
-      writeOrders(orders);
-    }
+// ------------------ 渲染購物車 ------------------
+function renderCart(){
+  const wrap = document.getElementById('cart-list');
+  wrap.innerHTML='';
+  const orders = readOrders();
+  if(orders.length===0){ wrap.innerHTML='<p>購物車是空的</p>'; return; }
 
-    function clearCart() {
-      localStorage.removeItem('class206_orders_v2');
-      renderCart();
-      syncCartBadge();
-    }
+  let total=0;
+  orders.forEach(order=>{
+    order.items.forEach(itemOrder=>{
+      const product = products.find(p=>p.id===itemOrder.id);
+      if(!product) return;
 
-    function syncCartBadge() {
-      const badge = document.getElementById('cart-badge');
-      if (!badge) return;
-      const orders = readOrders();
-      let count = 0;
-      orders.forEach(o => o.items.forEach(i => count += i.qty));
-      badge.textContent = count;
-    }
+      const row = document.createElement('div');
+      row.className='product-card';
+      row.innerHTML=`
+        <span>${product.name}</span>
+        <div class="qty-control">
+          <button class="minus">-</button>
+          <span class="qty">${itemOrder.qty}</span>
+          <button class="plus">+</button>
+        </div>
+        <span>$<span class="item-total">${product.price*itemOrder.qty}</span></span>
+      `;
+      wrap.appendChild(row);
 
-    // ------------------ 讀取 Realtime Database 商品 ------------------
-    let products = [];
+      const qtyEl = row.querySelector('.qty');
+      const itemTotalEl = row.querySelector('.item-total');
 
-    async function loadProducts() {
-      try {
-        const snapshot = await get(ref(dbRT, 'products'));
-        if (snapshot.exists()) {
-          products = Object.entries(snapshot.val()).map(([id, data]) => ({ id, ...data }));
-          renderCart();
-        } else {
-          products = [];
-          document.getElementById('cart-items').innerHTML = '<p>目前沒有商品</p>';
+      row.querySelector('.minus').onclick = ()=>{
+        if(itemOrder.qty>1){
+          itemOrder.qty--;
+          qtyEl.textContent=itemOrder.qty;
+          itemTotalEl.textContent=product.price*itemOrder.qty;
+          writeOrders(readOrders());
+          updateTotal();
         }
-      } catch (err) {
-        console.error(err);
-        document.getElementById('cart-items').innerHTML = '<p>讀取商品失敗</p>';
-      }
+      };
+      row.querySelector('.plus').onclick = ()=>{
+        if(itemOrder.qty<product.stock){
+          itemOrder.qty++;
+          qtyEl.textContent=itemOrder.qty;
+          itemTotalEl.textContent=product.price*itemOrder.qty;
+          writeOrders(readOrders());
+          updateTotal();
+        } else alert("已達庫存上限！");
+      };
+
+      total += product.price*itemOrder.qty;
+    });
+  });
+
+  const totalRow = document.createElement('div');
+  totalRow.style.marginTop='12px';
+  totalRow.style.fontWeight='700';
+  totalRow.id='total-amount';
+  totalRow.textContent=`總金額：$${total}`;
+  wrap.appendChild(totalRow);
+}
+
+// ------------------ 更新總金額 ------------------
+function updateTotal(){
+  let total=0;
+  readOrders().forEach(order=>{
+    order.items.forEach(i=>{
+      const product=products.find(p=>p.id===i.id);
+      if(product) total+=i.qty*product.price;
+    });
+  });
+  const totalEl=document.getElementById('total-amount');
+  if(totalEl) totalEl.textContent=`總金額：$${total}`;
+}
+
+// ------------------ 即時訂單顯示 + 狀態列 + 提醒 ------------------
+let lastStatuses = {};
+function fetchActiveOrders(){
+  const banner = document.getElementById('active-orders-banner');
+  const info = document.getElementById('active-orders-info');
+  const ordersRef = ref(db,'orders');
+
+  get(ordersRef).then(snapshot=>{
+    const allOrders = snapshot.exists() ? Object.values(snapshot.val()) : [];
+    const myOrders = allOrders.filter(o=>o.customerId===customerId);
+    if(myOrders.length===0){
+      banner.style.display='none';
+      return;
     }
 
-    // ------------------ 渲染購物車 ------------------
-    function renderCart() {
-      const wrap = document.getElementById('cart-items');
-      wrap.innerHTML = '<h3>購物車</h3>';
+    banner.style.display='block';
+    info.innerHTML='';
 
-      const orders = readOrders();
-      const summary = document.getElementById('checkout-summary');
-      summary.innerHTML = '';
+    myOrders.forEach(o=>{
+      const div=document.createElement('div');
+      div.style.marginBottom='6px';
+      div.style.padding='6px';
+      div.style.border='1px solid #ccc';
+      div.style.borderRadius='6px';
+      div.style.backgroundColor='#fefefe';
 
-      if (orders.length === 0) {
-        wrap.innerHTML += '<p>購物車是空的</p>';
-        summary.innerHTML = '<p>總金額：$0</p>';
-        return;
-      }
+      const title=document.createElement('div');
+      title.style.fontWeight='700';
+      title.textContent=`訂單 ${o.orderNumber} - ${new Date(o.createdAt).toLocaleTimeString()}`;
+      div.appendChild(title);
 
-      let total = 0;
-
-      orders.forEach(order => {
-        order.items.forEach(itemOrder => {
-          const product = products.find(p => p.id === itemOrder.id);
-          if (!product) return;
-
-          const row = document.createElement('div');
-          row.style.display = 'flex';
-          row.style.justifyContent = 'space-between';
-          row.style.alignItems = 'center';
-          row.style.padding = '8px';
-          row.style.border = '1px solid rgba(255,255,255,.08)';
-          row.style.borderRadius = '8px';
-          row.style.marginBottom = '6px';
-          row.innerHTML = `
-            <span>${product.name} x ${itemOrder.qty}</span>
-            <span>
-              $${product.price * itemOrder.qty} 
-              <button class="btn danger btn-sm" data-remove="${product.id}">刪除</button>
-            </span>
-          `;
-          wrap.appendChild(row);
-
-          total += product.price * itemOrder.qty;
+      o.items.forEach(ord=>{
+        ord.items.forEach(it=>{
+          const itemDiv=document.createElement('div');
+          itemDiv.style.marginLeft='8px';
+          itemDiv.textContent=`${it.name} x${it.qty} ($${it.price*it.qty})`;
+          div.appendChild(itemDiv);
         });
       });
 
-      // 顯示總金額
-      summary.innerHTML = `<p>總金額：$${total}</p>`;
+      // ----- 新增進度條 -----
+      const progressContainer = document.createElement('div');
+      progressContainer.className = 'order-progress';
+      progressContainer.style.marginTop = '4px';
+      const progressBar = document.createElement('div');
+      progressBar.className = 'order-progress-bar';
+      let percent = 0;
+      switch(o.status){
+        case '製作中': percent=33; break;
+        case '待取餐': percent=66; break;
+        case '已取餐': percent=100; break;
+        default: percent=0;
+      }
+      progressBar.style.width = percent + '%';
+      progressBar.textContent = o.status;
+      progressContainer.appendChild(progressBar);
+      div.appendChild(progressContainer);
 
-      // 綁定刪除按鈕
-      wrap.querySelectorAll('button[data-remove]').forEach(btn => {
-        btn.onclick = () => {
-          const id = btn.getAttribute('data-remove');
-          removeFromCart(id);
-        };
-      });
-    }
+      info.appendChild(div);
 
-    document.getElementById('clear-orders').onclick = clearCart;
-
-    // ------------------ 初始化 ------------------
-    document.addEventListener('DOMContentLoaded', () => {
-      loadProducts();
-      syncCartBadge();
+      // ----- 狀態變化提醒 -----
+      if(lastStatuses[o.orderNumber] && lastStatuses[o.orderNumber]!==o.status){
+        if(o.status==='待取餐'){
+          alert(`✅ 您的訂單 ${o.orderNumber} 已完成，請前往取餐！`);
+        } else if(o.status==='已取餐'){
+          alert(`🙏 感謝光臨，訂單 ${o.orderNumber} 已取餐完成！`);
+        }
+      }
+      lastStatuses[o.orderNumber] = o.status;
     });
-  </script>
+  });
+}
+
+// ------------------ DOM Ready ------------------
+document.addEventListener('DOMContentLoaded',()=>{
+  loadProducts();
+  syncCartBadge();
+  fetchActiveOrders();
+
+  // 結帳按鈕
+  const checkoutBtn = document.getElementById('checkout-btn');
+  if(checkoutBtn){
+    checkoutBtn.addEventListener('click',()=>{
+      const orders = readOrders();
+      if(!orders.length){
+        alert("購物車是空的，無法結帳！");
+        return;
+      }
+      window.location.href='checkout.html';
+    });
+  }
+
+  // 每 10 秒刷新一次
+  setInterval(fetchActiveOrders,10000);
+});
+</script>
 </body>
 </html>

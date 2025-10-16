@@ -176,4 +176,3 @@ input, select { padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(
 html, body { height: 100%; margin: 0; display: flex; flex-direction: column; }
 main { flex: 1; }
 #menu-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; justify-content: center; }
-

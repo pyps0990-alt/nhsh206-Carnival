@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>查詢訂單狀態</title>
+  <style>
+    body {
+      font-family: "Noto Sans TC", sans-serif;
+      background: #f5f4ef;
+      margin: 0;
+      padding: 20px;
+      text-align: center;
+      color: #333;
+    }
+
+    h1 {
+      color: #004d40;
+      margin-bottom: 25px;
+    }
+
+    .search-box {
+      background: #ffffff;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      display: inline-block;
+      max-width: 400px;
+      width: 90%;
+    }
+
+    input {
+      padding: 10px;
+      font-size: 16px;
+      width: 80%;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      outline: none;
+      transition: border 0.3s;
+    }
+
+    input:focus {
+      border-color: #006a6a;
+    }
+
+    button {
+      padding: 10px 15px;
+      border: none;
+      background: #006a6a;
+      color: white;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background: #009c9c;
+    }
+
+    .order-info {
+      margin-top: 20px;
+      background: #ffffff;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      text-align: left;
+      display: inline-block;
+      max-width: 420px;
+      width: 90%;
+    }
+
+    .status {
+      font-weight: bold;
+      font-size: 18px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      display: inline-block;
+      margin-top: 10px;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    .status.pending { background: #fff8e1; color: #b68900; }       /* 未製作 */
+    .status.making { background: #e1f5fe; color: #0277bd; }        /* 製作中 */
+    .status.done { background: #e8f5e9; color: #2e7d32; }          /* 已取餐 */
+    .status.cancelled { background: #ffebee; color: #c62828; }     /* 已取消 */
+
+    .cancel-btn {
+      background: #d9534f;
+      margin-top: 15px;
+    }
+    .cancel-btn:hover {
+      background: #c9302c;
+    }
+
+    @media (max-width: 600px) {
+      h1 { font-size: 22px; }
+      input { width: 100%; }
+      .search-box, .order-info { width: 95%; }
+    }
+  </style>
+</head>
+<body>
+  <h1>查詢訂單狀態</h1>
+
+  <div class="search-box">
+    <input type="text" id="orderCode" placeholder="輸入號碼牌 (例：A001)">
+    <button onclick="searchOrder()">查詢</button>
+  </div>
+
+  <div id="orderResult" class="order-info" style="display:none;">
+    <p><b>號碼牌：</b><span id="orderId"></span></p>
+    <p><b>商品內容：</b><span id="orderItems"></span></p>
+    <p><b>總金額：</b>$<span id="orderTotal"></span></p>
+    <p><b>狀態：</b><span id="orderStatus" class="status"></span></p>
+    <button class="cancel-btn" id="cancelBtn" onclick="cancelOrder()">取消訂單</button>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-app.js";
+    import { getDatabase, ref, get, update } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-database.js";
+
+    // 🚀 這裡請替換成你的 Firebase 設定
+    const firebaseConfig = {
+    apiKey: "AIzaSyAk6JPL61gRlRtLP7926iAfbSr05O0AM9s",
+    authDomain: "nhshfestival.firebaseapp.com",
+    databaseURL: "https://nhshfestival-default-rtdb.firebaseio.com",
+    projectId: "nhshfestival",
+    storageBucket: "nhshfestival.firebasestorage.app",
+    messagingSenderId: "337149505249",
+    appId: "1:337149505249:web:4e81a826911c078fd811a0"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    async function searchOrder() {
+      const code = document.getElementById('orderCode').value.trim().toUpperCase();
+      if (!code) return alert("請輸入號碼牌！");
+
+      const orderRef = ref(db, 'orders/' + code);
+      const snapshot = await get(orderRef);
+
+      if (snapshot.exists()) {
+        const order = snapshot.val();
+        document.getElementById('orderResult').style.display = 'block';
+        document.getElementById('orderId').textContent = code;
+        document.getElementById('orderItems').textContent = Object.entries(order.items || {})
+          .map(([name, qty]) => `${name} ×${qty}`).join(', ');
+        document.getElementById('orderTotal').textContent = order.total || 0;
+
+        const statusEl = document.getElementById('orderStatus');
+        const statusText = order.status || "未製作";
+        statusEl.textContent = statusText;
+
+        statusEl.className = "status " + getStatusClass(statusText);
+        document.getElementById('cancelBtn').style.display =
+          (statusText === "未製作" || statusText === "等待中") ? "inline-block" : "none";
+      } else {
+        alert("查無此訂單，請確認號碼是否正確。");
+      }
+    }
+
+    function getStatusClass(status) {
+      switch (status) {
+        case "未製作": return "pending";
+        case "製作中": return "making";
+        case "已取餐": return "done";
+        case "已取消": return "cancelled";
+        default: return "pending";
+      }
+    }
+
+    async function cancelOrder() {
+      const code = document.getElementById('orderId').textContent;
+      if (confirm("確定要取消這筆訂單嗎？")) {
+        await update(ref(db, 'orders/' + code), { status: "已取消" });
+        const statusEl = document.getElementById('orderStatus');
+        statusEl.textContent = "已取消";
+        statusEl.className = "status cancelled";
+        document.getElementById('cancelBtn').style.display = "none";
+        alert("✅ 訂單已取消！");
+      }
+    }
+
+    window.searchOrder = searchOrder;
+    window.cancelOrder = cancelOrder;
+  </script>
+</body>
+</html>

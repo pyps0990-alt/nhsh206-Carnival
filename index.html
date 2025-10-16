@@ -5,21 +5,74 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="styles.css">
   <link rel="icon" href="飲ㄐㄩ啦.ico" type="image/x-icon">
-  <title>首頁</title>
+  <title>首頁 | 飲ㄐㄩ啦</title>
+  <style>
+    /* ---------- 訂單進度條 ---------- */
+    .order-progress {
+      height: 16px;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-top: 6px;
+      background: #dfe6e9;
+    }
+    .order-progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #0984e3 0%, #74b9ff 50%, #0984e3 100%);
+      background-size: 200% 100%;
+      animation: float 2s linear infinite;
+      text-align: center;
+      color: white;
+      font-size: 12px;
+      line-height: 16px;
+      font-weight: bold;
+      transition: width 0.5s ease;
+    }
+    @keyframes float {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* ---------- 即時訂單通知 ---------- */
+    #active-orders-banner {
+      display: none;
+      position: fixed;
+      top: 100px;
+      left: 16px;
+      background: #ffeaa7;
+      padding: 12px 16px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      z-index: 999;
+      max-width: 300px;
+    }
+
+    .added-tip {
+      position: fixed;
+      top: 20%;
+      left: 50%;
+      transform: translateX(-50%) scale(0);
+      background: var(--primary);
+      color: #f5f5ef;
+      padding: 8px 14px;
+      border-radius: 12px;
+      font-weight: 700;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .4s ease, transform .4s ease;
+      z-index: 9999;
+    }
+    .added-tip.show {
+      opacity: 1;
+      transform: translateX(-50%) scale(1);
+    }
+  </style>
 </head>
 <body>
   <header class="site-header">
     <div class="container header-inner">
       <div class="brand-wrap">
-        <h1 class="brand">飲ㄐㄩ啦
-        <html lang="zh-Hant">
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Document</title>
-        </head>
-        <body>
-        </html></h1>
+        <h1 class="brand">飲ㄐㄩ啦</h1>
       </div>
       <nav class="nav">
         <a href="products.html">商品列表</a>
@@ -35,48 +88,152 @@
     </div>
   </header>
 
+  <!-- 左上角浮動訂單 -->
+  <div id="active-orders-banner">
+    <strong>正在進行中的訂單：</strong>
+    <div id="active-orders-info"></div>
+  </div>
+
+  <!-- 加入購物車提示 -->
+  <div class="added-tip">已加入購物車</div>
+
   <main>
     <section class="section hero">
       <div class="container">
         <h2>歡迎光臨，飲ㄐㄩ啦！</h2>
         <p class="subtitle">歡迎選購我們提供的客製化及特色飲品</p>
-        <a href="products.html" class="btn primary">To　商品列表</a>
+        <a href="products.html" class="btn primary">前往商品列表</a>
       </div>
     </section>
+
     <section class="section place">
-  <div class="container">
-    <h2>攤位位置</h2>
-    <div class="booth-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-top:16px">
-      <!-- 範例攤位圖片 -->
-      <div class="booth-card">
-        <img src="images/booth206.png" alt="攤位 1" style="width: 100%;border-radius:12px;object-fit:cover;">
-        <h4>206攤位</h4>
-    </div>
-  </div>
-</section>
+      <div class="container">
+        <h2>攤位位置</h2>
+        <div class="booth-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-top:16px">
+          <div class="booth-card">
+            <img src="images/booth206.png" alt="攤位 1" style="width: 100%;border-radius:12px;object-fit:cover;">
+            <h4>206攤位</h4>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
-</body>
+
   <footer class="site-footer">
     <div class="container">
       <p>© 206 班校慶園遊會</p>
     </div>
   </footer>
 
-  <script>
-    function readOrders() {
-      return JSON.parse(localStorage.getItem('class206_orders_v2') || '[]');
-    }
-    function syncCartBadge() {
-      const badge = document.getElementById('cart-badge');
-      if (!badge) return;
-      const orders = readOrders();
-      let count = 0;
-      orders.forEach(o => o.items.forEach(i => count += i.qty));
-      badge.textContent = count;
-    }
-    document.addEventListener("DOMContentLoaded", () => {
-      syncCartBadge();
-    });
-  </script>
+  <script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
+// ------------------ 顧客 ID ------------------
+let customerId = localStorage.getItem('customerId');
+if(!customerId){
+  customerId = 'c_' + Math.random().toString(36).slice(2,9);
+  localStorage.setItem('customerId', customerId);
+}
+
+// ------------------ Firebase 初始化 ------------------
+const firebaseConfig = {
+  apiKey: "AIzaSyAk6JPL61gRlRtLP7926iAfbSr05O0AM9s",
+  authDomain: "nhshfestival.firebaseapp.com",
+  databaseURL: "https://nhshfestival-default-rtdb.firebaseio.com",
+  projectId: "nhshfestival",
+  storageBucket: "nhshfestival.firebasestorage.app",
+  messagingSenderId: "337149505249",
+  appId: "1:337149505249:web:4e81a826911c078fd811a0"
+};
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+// ------------------ 購物車 badge ------------------
+function readOrders() { return JSON.parse(localStorage.getItem('class206_orders_v2') || '[]'); }
+function syncCartBadge() {
+  const badge = document.getElementById('cart-badge');
+  if(!badge) return;
+  const orders = readOrders();
+  let count=0;
+  orders.forEach(o=>o.items.forEach(i=>count+=i.qty));
+  badge.textContent=count;
+}
+
+// ------------------ 訂單進度條 ------------------
+function statusToPercent(status){
+  switch(status){
+    case '製作中': return 33;
+    case '待取餐': return 66;
+    case '已取餐': return 100;
+    default: return 0;
+  }
+}
+function createProgressBar(order){
+  const container = document.createElement('div');
+  container.className = 'order-progress';
+  container.style.marginTop = '4px';
+  const bar = document.createElement('div');
+  bar.className = 'order-progress-bar';
+  bar.style.width = statusToPercent(order.status) + '%';
+  bar.textContent = order.status;
+  container.appendChild(bar);
+  return container;
+}
+
+// ------------------ 即時訂單顯示 ------------------
+let lastStatuses = {};
+document.addEventListener("DOMContentLoaded", ()=>{
+  syncCartBadge();
+  const banner = document.getElementById('active-orders-banner');
+  const info = document.getElementById('active-orders-info');
+
+  const ordersRef = ref(db,'orders');
+  onValue(ordersRef, snapshot=>{
+    const allOrders = snapshot.exists() ? Object.values(snapshot.val()) : [];
+    const myOrders = allOrders.filter(o=>o.customerId===customerId);
+
+    info.innerHTML='';
+
+    if(myOrders.length>0){
+      banner.style.display='block';
+      myOrders.forEach(o=>{
+        const orderDiv = document.createElement('div');
+        orderDiv.style.border='1px solid #ccc';
+        orderDiv.style.padding='6px 10px';
+        orderDiv.style.borderRadius='8px';
+        orderDiv.style.marginBottom='6px';
+        orderDiv.style.backgroundColor='#f9f9f9';
+
+        const title = document.createElement('div');
+        title.textContent=`訂單 ${o.orderNumber} - ${new Date(o.createdAt).toLocaleTimeString()}`;
+        title.style.fontWeight='700';
+        orderDiv.appendChild(title);
+
+        o.items.forEach(ord=>{
+          ord.items.forEach(it=>{
+            const itemDiv = document.createElement('div');
+            itemDiv.textContent=`${it.name} x${it.qty} ($${it.price*it.qty})`;
+            itemDiv.style.marginLeft='8px';
+            orderDiv.appendChild(itemDiv);
+          });
+        });
+
+        // 加入進度條
+        const progress = createProgressBar(o);
+        orderDiv.appendChild(progress);
+        info.appendChild(orderDiv);
+
+        // 狀態變化提醒
+        if(lastStatuses[o.orderNumber] && lastStatuses[o.orderNumber]!==o.status){
+          if(o.status==='待取餐') alert(`✅ 您的訂單 ${o.orderNumber} 已完成，請前往取餐！`);
+          else if(o.status==='已取餐') alert(`🙏 感謝光臨，訂單 ${o.orderNumber} 已取餐完成！`);
+        }
+        lastStatuses[o.orderNumber] = o.status;
+      });
+    } else banner.style.display='none';
+  });
+});
+</script>
+</body>
 </html>

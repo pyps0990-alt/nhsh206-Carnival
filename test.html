@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>商品管理示範</title>
+  <style>
+    body { font-family: "Noto Sans TC", sans-serif; background: #f0f4f8; padding: 20px; }
+    .card { background: #fff; padding: 16px; border-radius: 8px; margin-bottom: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    input, label { display: block; margin: 6px 0; }
+    button { margin-top: 8px; padding: 8px 16px; cursor: pointer; }
+    .hot { color: red; font-weight: 700; }
+  </style>
+</head>
+<body>
+
+  <h1>商品管理示範</h1>
+
+  <section class="card">
+    <h2>新增商品</h2>
+    <form id="add-product-form">
+      <label>商品名稱：<input type="text" name="name" required></label>
+      <label>描述：<input type="text" name="desc"></label>
+      <label>價格：<input type="number" name="price" required></label>
+      <label>庫存：<input type="number" name="stock" required></label>
+      <label>圖片網址：<input type="text" name="img"></label>
+      <label>熱銷：<input type="checkbox" name="hot"></label>
+      <button type="submit">新增商品</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>商品列表</h2>
+    <div id="product-list">
+      <p>讀取中...</p>
+    </div>
+  </section>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "nhshfestival.firebaseapp.com",
+      databaseURL: "https://nhshfestival-default-rtdb.firebaseio.com",
+      projectId: "nhshfestival",
+      storageBucket: "nhshfestival.firebasestorage.app",
+      messagingSenderId: "337149505249",
+      appId: "1:337149505249:web:4e81a826911c078fd811a0"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const form = document.getElementById('add-product-form');
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const data = new FormData(form);
+      const product = {
+        name: data.get('name') || '未命名',
+        desc: data.get('desc') || '',
+        price: Number(data.get('price')) || 0,
+        stock: Number(data.get('stock')) || 0,
+        img: data.get('img') || '',
+        hot: data.get('hot') === 'on' ? true : false
+      };
+      try {
+        await push(ref(db, 'products'), product);
+        alert('商品已新增');
+        form.reset();
+      } catch(err) {
+        console.error(err);
+        alert('新增失敗');
+      }
+    });
+
+    const productList = document.getElementById('product-list');
+    const productsRef = ref(db, 'products');
+    onValue(productsRef, snapshot => {
+      const data = snapshot.val() || {};
+      const products = Object.entries(data).map(([id, item]) => ({ id, ...item }));
+      productList.innerHTML = '';
+      if (products.length === 0) {
+        productList.innerHTML = '<p>目前沒有商品</p>';
+        return;
+      }
+      products.forEach(p => {
+        const div = document.createElement('div');
+        div.className = 'card';
+        div.innerHTML = `
+          <strong>${p.name}</strong> ${p.hot ? '<span class="hot">熱銷</span>' : ''}
+          <p>描述：${p.desc}</p>
+          <p>價格：$${p.price}</p>
+          <p>庫存：${p.stock}</p>
+          ${p.img ? `<img src="${p.img}" style="width:100px; height:auto;">` : ''}
+        `;
+        productList.appendChild(div);
+      });
+    });
+  </script>
+
+</body>
+</html>
