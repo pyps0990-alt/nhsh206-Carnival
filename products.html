@@ -95,6 +95,54 @@
       box-shadow: 0 2px 6px rgba(0,0,0,0.2);
       z-index: 999;
     }
+
+    /* ======= 商品格子布局與淡入動畫 ======= */
+    #menu-list {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+    @media(min-width: 600px) { #menu-list { grid-template-columns: 1fr 1fr; } }
+    @media(min-width: 992px) { #menu-list { grid-template-columns: 1fr 1fr 1fr 1fr; } }
+
+    .product-card {
+      opacity: 0;
+      transform: translateY(10px);
+      animation: fadeInUp 0.5s forwards;
+    }
+
+    @keyframes fadeInUp {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ======= 商品詳情動畫與樣式 ======= */
+    #product-detail {
+      opacity: 0;
+      transform: scale(0.95);
+      transition: opacity 0.4s, transform 0.4s;
+      margin-top: 16px;
+      padding: 16px;
+      border-radius: 10px;
+      background: var(--panel);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    #product-detail.show {
+      opacity: 1;
+      transform: scale(1);
+    }
+    #product-detail img {
+      width: 100%;
+      max-height: 200px;
+      object-fit: cover;
+      border-radius: 8px;
+      margin-bottom: 12px;
+    }
+    #product-detail h4 {
+      margin: 8px 0;
+    }
+    #product-detail p {
+      margin: 4px 0;
+    }
   </style>
 </head>
 <body>
@@ -104,14 +152,14 @@
     <span id="active-orders-info"></span>
   </div>
 
-  <!-- 在 body 中加一個提示容器 -->
-<div id="added-tip" style="
-  position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
-  background:#7a9d54; color:white; padding:10px 16px;
-  border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.2);
-  opacity:0; pointer-events:none; transition:0.4s;
-  z-index:9999;
-">已加入購物車 ✅</div>
+  <!-- 加入購物車提示 -->
+  <div id="added-tip" style="
+    position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+    background:#7a9d54; color:white; padding:10px 16px;
+    border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.2);
+    opacity:0; pointer-events:none; transition:0.4s;
+    z-index:9999;
+  ">已加入購物車 ✅</div>
 
   <header class="site-header">
     <div class="container header-inner">
@@ -171,21 +219,15 @@ function showAddedTip(){
   const tip = document.getElementById('added-tip');
   if(!tip) return;
   tip.style.opacity = '1';
-  setTimeout(() => {
-    tip.style.opacity = '0';
-  }, 1200); // 1.2 秒後淡出
+  setTimeout(() => { tip.style.opacity = '0'; }, 1200);
 }
 
 // ------------------ 購物車 ------------------
-function readOrders() { 
-  return JSON.parse(localStorage.getItem('class206_orders_v2') || '[]'); 
-}
-
+function readOrders() { return JSON.parse(localStorage.getItem('class206_orders_v2') || '[]'); }
 function writeOrders(list){ 
   localStorage.setItem('class206_orders_v2', JSON.stringify(list)); 
   syncCartBadge(); 
 }
-
 function syncCartBadge(){
   const badge = document.getElementById('cart-badge');
   if (!badge) return;
@@ -201,9 +243,10 @@ let products = [];
 function renderMenu(){
   const wrap = document.getElementById('menu-list');
   wrap.innerHTML = '';
-  products.forEach(item => {
+  products.forEach((item, index) => {
     const card = document.createElement('article');
     card.className = 'card product-card';
+    card.style.animationDelay = `${index*0.05}s`;
     card.innerHTML = `
       <div style="position:relative;border-radius:10px;overflow:hidden;margin:-6px -6px 10px;border:1px solid rgba(255,255,255,.06)">
         <img src="${item.img}" alt="${item.name}" style="width:100%;height:140px;object-fit:cover;">
@@ -242,45 +285,63 @@ function renderMenu(){
       const qty = Number(btnAdd.closest('.card').querySelector('.qty').textContent);
       addToCart(id, qty);
     }
+
+    const btnDetail = e.target.closest('button[data-detail]');
+    if (btnDetail){
+      const id = btnDetail.dataset.detail;
+      showProductDetail(id);
+    }
   });
 }
 
 // ------------------ 加入購物車 ------------------
-function addToCart(itemId, qty = 1){
-  const item = products.find(p => p.id === itemId);
+function addToCart(itemId, qty=1){
+  const item = products.find(p => p.id===itemId);
   if (!item) return;
-  if (item.stock < qty){ 
-    alert(`庫存不足，目前剩 ${item.stock} 件`); 
-    return; 
-  }
+  if (item.stock < qty){ alert(`庫存不足，目前剩 ${item.stock} 件`); return; }
 
   const orders = readOrders();
-  const existingIndex = orders.findIndex(o => o.items.some(i => i.id === itemId));
-  if (existingIndex >= 0){
+  const existingIndex = orders.findIndex(o => o.items.some(i => i.id===itemId));
+  if (existingIndex >=0){
     const currentQty = orders[existingIndex].items[0].qty;
-    if (currentQty + qty > item.stock){
-      alert(`庫存不足，最多還能購買 ${item.stock - currentQty} 件`);
+    if (currentQty+qty>item.stock){
+      alert(`庫存不足，最多還能購買 ${item.stock-currentQty} 件`);
       return;
     }
     orders[existingIndex].items[0].qty += qty;
   } else {
     orders.push({
-      id: 'o_' + Math.random().toString(36).slice(2,9),
+      id: 'o_'+Math.random().toString(36).slice(2,9),
       createdAt: Date.now(),
-      items: [{id: itemId, qty}],
+      items: [{id:itemId, qty}],
       status: '準備中'
     });
   }
   writeOrders(orders);
-  showAddedTip(); // <-- 加在這裡
+  showAddedTip();
+}
+
+// ------------------ 商品詳情 ------------------
+function showProductDetail(itemId){
+  const item = products.find(p=>p.id===itemId);
+  if(!item) return;
+  const detail = document.getElementById('product-detail');
+  detail.innerHTML = `
+    <img src="${item.img}" alt="${item.name}">
+    <h4>${item.name}</h4>
+    <p>${item.desc}</p>
+    <p>價格：$${item.price}</p>
+    <p>庫存：${item.stock}</p>
+  `;
+  detail.classList.add('show');
 }
 
 // ------------------ 讀取 Firebase ------------------
 function loadProductsRealtime(){
   const productsRef = ref(db, 'products');
-  onValue(productsRef, snapshot => {
-    const data = snapshot.val() || {};
-    products = Object.entries(data).map(([id,d]) => ({id, ...d}));
+  onValue(productsRef, snapshot=>{
+    const data = snapshot.val()||{};
+    products = Object.entries(data).map(([id,d])=>({id,...d}));
     renderMenu();
     syncCartBadge();
   });
@@ -290,7 +351,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
   loadProductsRealtime();
   syncCartBadge();
 });
-
 </script>
 </body>
 </html>
