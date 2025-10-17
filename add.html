@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>商品管理 | 飲ㄐㄩ啦</title>
+<style>
+:root {
+  --bg:#f8f6f2; --panel:#e8e2da; --text:#2f2f2f;
+  --accent1:#9bb49a; --accent2:#b0a48a; --done:#7a9d54; --pending:#d2a679; --primary:#7a9d54;
+}
+body { font-family:"Noto Sans TC",sans-serif; background:var(--bg); color:var(--text); margin:0; padding:0;}
+header { background:var(--accent1); color:white; padding:16px; text-align:center; font-size:22px; font-weight:600; position:sticky; top:0; z-index:10;}
+main { padding:16px; max-width:600px; margin:0 auto; }
+.tabs { display:flex; gap:12px; margin-bottom:16px; }
+.tab-btn { flex:1; padding:10px; background:var(--panel); border:none; border-radius:8px; cursor:pointer; font-weight:700; transition:0.2s; }
+.tab-btn.active { background:var(--accent1); color:white; }
+form, .delete-section { display:none; flex-direction:column; gap:12px; background: var(--panel); padding:16px; border-radius:12px; box-shadow:0 2px 6px rgba(0,0,0,0.1);}
+label { display:flex; flex-direction:column; font-weight:600; }
+input, textarea, select { padding:6px 8px; border-radius:6px; border:1px solid #ccc; margin-top:4px; font-size:14px; }
+button { background: var(--primary); color:white; font-weight:700; border:none; padding:10px; border-radius:8px; cursor:pointer; transition: filter .2s ease; }
+button:hover { filter: brightness(1.1); }
+#img-preview { display:flex; justify-content:center; margin-bottom:12px; }
+#img-preview img { max-width:150px; max-height:150px; border-radius:8px; border:1px solid #ccc; object-fit:cover; }
+.product-card { display:flex; align-items:center; gap:12px; padding:12px; border:1px solid #ddd; border-radius:12px; background: var(--panel); margin-top:12px; position:relative; }
+.product-card img { width:80px; height:80px; object-fit:cover; border-radius:8px; }
+.product-info { flex:1; display:flex; flex-direction:column; justify-content:center; }
+.product-info .name { font-weight:700; font-size:16px; margin-bottom:4px; }
+.product-info .price { font-weight:700; color:#333; }
+.delete-btn { background:red; color:white; font-size:12px; padding:4px 6px; border-radius:6px; border:none; cursor:pointer; margin-left:auto; }
+@media (max-width:768px){
+  main{padding:12px;}
+  header{font-size:20px;}
+}
+</style>
+</head>
+<body>
+<header>飲ㄐㄩ啦 — 商品管理</header>
+<main>
+  <div class="tabs">
+    <button class="tab-btn active" id="tab-add">新增商品</button>
+    <button class="tab-btn" id="tab-delete">刪除商品</button>
+  </div>
+
+  <!-- 新增商品區塊 -->
+  <form id="add-product-form">
+    <label>商品名稱：
+      <input type="text" name="name" required>
+    </label>
+    <label>價格：
+      <input type="number" name="price" required min="0">
+    </label>
+    <label>庫存：
+      <input type="number" name="stock" required min="0">
+    </label>
+    <label>圖片 URL：
+      <input type="url" name="img" id="img-url" placeholder="https://example.com/image.jpg">
+    </label>
+    <label>或上傳圖片：
+      <input type="file" id="img-file" accept="image/*">
+    </label>
+    <div id="img-preview">
+      <img id="preview-img" src="" alt="商品預覽" style="display:none;">
+    </div>
+    <label>描述：
+      <textarea name="desc" rows="3"></textarea>
+    </label>
+    <button type="submit">新增商品</button>
+  </form>
+
+  <!-- 刪除商品區塊 -->
+  <div class="delete-section" id="delete-section">
+    <div id="product-list">讀取中...</div>
+  </div>
+</main>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getDatabase, ref, push, onValue, remove } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAk6JPL61gRlRtLP7926iAfbSr05O0AM9s",
+  authDomain: "nhshfestival.firebaseapp.com",
+  databaseURL: "https://nhshfestival-default-rtdb.firebaseio.com",
+  projectId: "nhshfestival",
+  storageBucket: "nhshfestival.firebasestorage.app",
+  messagingSenderId: "337149505249",
+  appId: "1:337149505249:web:4e81a826911c078fd811a0"
+};
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+// ---------------- Tab 切換 ----------------
+const tabAdd = document.getElementById('tab-add');
+const tabDelete = document.getElementById('tab-delete');
+const form = document.getElementById('add-product-form');
+const deleteSection = document.getElementById('delete-section');
+
+function showAddTab(){
+  tabAdd.classList.add('active');
+  tabDelete.classList.remove('active');
+  form.style.display='flex';
+  deleteSection.style.display='none';
+}
+function showDeleteTab(){
+  tabAdd.classList.remove('active');
+  tabDelete.classList.add('active');
+  form.style.display='none';
+  deleteSection.style.display='flex';
+}
+
+tabAdd.onclick = showAddTab;
+tabDelete.onclick = showDeleteTab;
+
+// 預設顯示新增
+showAddTab();
+
+// ---------------- 圖片預覽 ----------------
+const imgInput = document.getElementById('img-url');
+const fileInput = document.getElementById('img-file');
+const previewImg = document.getElementById('preview-img');
+
+function updatePreview(src){
+  if(src){ previewImg.src = src; previewImg.style.display='block'; }
+  else { previewImg.src=''; previewImg.style.display='none'; }
+}
+
+function handlePreview(){
+  if(imgInput.value.trim() !== ''){
+    updatePreview(imgInput.value.trim());
+  } else if(fileInput.files.length > 0){
+    const reader = new FileReader();
+    reader.onload = e => updatePreview(e.target.result);
+    reader.readAsDataURL(fileInput.files[0]);
+  } else { updatePreview(''); }
+}
+
+imgInput.addEventListener('input', handlePreview);
+fileInput.addEventListener('change', () => {
+  if(fileInput.files.length > 0) imgInput.value='';
+  handlePreview();
+});
+
+// ---------------- 新增商品 ----------------
+form.addEventListener('submit', async e=>{
+  e.preventDefault();
+  let imgToSave = imgInput.value || '';
+  if(fileInput.files.length > 0){
+    const reader = new FileReader();
+    reader.onload = async e => {
+      await saveProduct(e.target.result);
+    };
+    reader.readAsDataURL(fileInput.files[0]);
+  } else {
+    await saveProduct(imgToSave);
+  }
+});
+
+async function saveProduct(imgSrc){
+  const data = Object.fromEntries(new FormData(form));
+  try{
+    await push(ref(db,'products'), {
+      name: data.name,
+      price: Number(data.price),
+      stock: Number(data.stock),
+      img: imgSrc || '',
+      desc: data.desc || ''
+    });
+    alert('✅ 商品新增成功！');
+    form.reset();
+    updatePreview('');
+  }catch(err){
+    console.error(err);
+    alert('❌ 商品新增失敗！');
+  }
+}
+
+// ---------------- 刪除商品 ----------------
+const productList = document.getElementById('product-list');
+
+function renderProductCard(id, data){
+  const card = document.createElement('div');
+  card.className='product-card';
+  card.innerHTML=`
+    <img src="${data.img || ''}" alt="${data.name}">
+    <div class="product-info">
+      <div class="name">${data.name}</div>
+      <div class="price">$${data.price}，庫存 ${data.stock}</div>
+      <div class="desc">${data.desc||''}</div>
+    </div>
+    <button class="delete-btn">刪除</button>
+  `;
+  const deleteBtn = card.querySelector('.delete-btn');
+  deleteBtn.onclick = async ()=>{
+    if(confirm(`確定要刪除 "${data.name}" 嗎？`)){
+      await remove(ref(db, `products/${id}`));
+    }
+  }
+  productList.appendChild(card);
+}
+
+// 監聽 Firebase 商品
+onValue(ref(db,'products'), snapshot=>{
+  const data = snapshot.val();
+  productList.innerHTML='';
+  if(!data) return;
+  Object.entries(data).forEach(([id,item])=>{
+    renderProductCard(id,item);
+  });
+});
+</script>
+</body>
+</html>
