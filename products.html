@@ -114,35 +114,6 @@
     @keyframes fadeInUp {
       to { opacity: 1; transform: translateY(0); }
     }
-
-    /* ======= 商品詳情動畫與樣式 ======= */
-    #product-detail {
-      opacity: 0;
-      transform: scale(0.95);
-      transition: opacity 0.4s, transform 0.4s;
-      margin-top: 16px;
-      padding: 16px;
-      border-radius: 10px;
-      background: var(--panel);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    #product-detail.show {
-      opacity: 1;
-      transform: scale(1);
-    }
-    #product-detail img {
-      width: 100%;
-      max-height: 200px;
-      object-fit: cover;
-      border-radius: 8px;
-      margin-bottom: 12px;
-    }
-    #product-detail h4 {
-      margin: 8px 0;
-    }
-    #product-detail p {
-      margin: 4px 0;
-    }
   </style>
 </head>
 <body>
@@ -189,7 +160,8 @@
 
     <section id="product-detail"></section>
   </main>
-
+  <div id="detail-overlay"></div>
+</body>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
 import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
@@ -262,7 +234,6 @@ function renderMenu(){
         <button class="btn-increase">+</button>
       </div>
       <button class="btn primary" data-add="${item.id}">加入</button>
-      <button class="btn" data-detail="${item.id}">詳情</button>
     `;
     wrap.appendChild(card);
   });
@@ -323,18 +294,32 @@ function addToCart(itemId, qty=1){
 
 // ------------------ 商品詳情 ------------------
 function showProductDetail(itemId){
-  const item = products.find(p=>p.id===itemId);
+  const item = products.find(p => p.id === itemId);
   if(!item) return;
+
   const detail = document.getElementById('product-detail');
+
   detail.innerHTML = `
     <img src="${item.img}" alt="${item.name}">
     <h4>${item.name}</h4>
     <p>${item.desc}</p>
     <p>價格：$${item.price}</p>
     <p>庫存：${item.stock}</p>
+    <button class="close-detail">關閉</button>
   `;
+  
   detail.classList.add('show');
+
+  // 關閉按鈕 & 點擊背景
+  const closeBtn = detail.querySelector('.close-detail');
+  closeBtn.onclick = () => {
+    detail.classList.remove('show');
+  };
+  overlay.onclick = () => {
+    detail.classList.remove('show');
+  };
 }
+
 
 // ------------------ 讀取 Firebase ------------------
 function loadProductsRealtime(){

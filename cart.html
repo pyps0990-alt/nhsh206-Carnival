@@ -97,6 +97,86 @@
       font-weight: 700;
       font-size: 16px;
     }
+    /* ---------- 購物車商品卡強化版 ---------- */
+.product-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  background: var(--panel, #f5f5f5);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+.product-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+.product-img {
+  width: 80px;
+  height: 80px;
+  border-radius: 10px;
+  object-fit: cover;
+}
+.product-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.product-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.qty-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.qty-control button {
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: var(--primary, #7a9d54);
+  color: white;
+  font-size: 18px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform .15s ease, filter .2s ease;
+}
+.qty-control button:hover { filter: brightness(1.1); transform: scale(1.1); }
+.qty-control button:active { transform: scale(0.9); }
+.qty-control .qty {
+  min-width: 24px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 16px;
+}
+.item-subtotal {
+  align-self: flex-end;
+  font-weight: 700;
+  color: #333;
+  margin-top: 8px;
+}
+
+/* ---------- 總金額顯示 ---------- */
+.cart-total-container {
+  text-align: right;
+  margin-top: 16px;
+  font-weight: 900;
+  font-size: 1.3rem;
+  color: #2d3436;
+  background: #ffeaa7;
+  display: inline-block;
+  padding: 10px 16px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
   </style>
 </head>
 <body>
@@ -207,7 +287,8 @@ function renderCart(){
   const orders = readOrders();
   if(orders.length===0){ wrap.innerHTML='<p>購物車是空的</p>'; return; }
 
-  let total=0;
+  let grandTotal = 0;
+
   orders.forEach(order=>{
     order.items.forEach(itemOrder=>{
       const product = products.find(p=>p.id===itemOrder.id);
@@ -215,63 +296,98 @@ function renderCart(){
 
       const row = document.createElement('div');
       row.className='product-card';
-      row.innerHTML=`
-        <span>${product.name}</span>
-        <div class="qty-control">
-          <button class="minus">-</button>
-          <span class="qty">${itemOrder.qty}</span>
-          <button class="plus">+</button>
+      row.style.position='relative';
+      row.innerHTML = `
+        <div style="display:flex;align-items:center;gap:10px;">
+          <img src="${product.img}" alt="${product.name}" style="width:80px;height:80px;object-fit:cover;border-radius:6px;">
+          <div style="flex:1;">
+            <div style="font-weight:700;font-size:16px;">${product.name}</div>
+            <div class="qty-control" style="margin-top:4px;">
+              <button class="minus">-</button>
+              <span class="qty">${itemOrder.qty}</span>
+              <button class="plus">+</button>
+            </div>
+          </div>
         </div>
-        <span>$<span class="item-total">${product.price*itemOrder.qty}</span></span>
+        <div style="position:absolute;bottom:8px;right:12px;font-weight:700;">$<span class="item-total">${product.price*itemOrder.qty}</span></div>
       `;
       wrap.appendChild(row);
 
       const qtyEl = row.querySelector('.qty');
       const itemTotalEl = row.querySelector('.item-total');
 
-      row.querySelector('.minus').onclick = ()=>{
-        if(itemOrder.qty>1){
+      // -------- 數量調整事件 --------
+      row.querySelector('.minus').onclick = () => {
+        if(itemOrder.qty > 1){
           itemOrder.qty--;
-          qtyEl.textContent=itemOrder.qty;
-          itemTotalEl.textContent=product.price*itemOrder.qty;
-          writeOrders(readOrders());
+          qtyEl.textContent = itemOrder.qty;
+          itemTotalEl.textContent = product.price * itemOrder.qty;
+
+          // 寫回 localStorage
+          const allOrders = readOrders();
+          allOrders.forEach(o=>o.items.forEach(i=>{ if(i.id===itemOrder.id) i.qty=itemOrder.qty; }));
+          writeOrders(allOrders);
+
           updateTotal();
         }
       };
-      row.querySelector('.plus').onclick = ()=>{
-        if(itemOrder.qty<product.stock){
+      row.querySelector('.plus').onclick = () => {
+        if(itemOrder.qty < product.stock){
           itemOrder.qty++;
-          qtyEl.textContent=itemOrder.qty;
-          itemTotalEl.textContent=product.price*itemOrder.qty;
-          writeOrders(readOrders());
+          qtyEl.textContent = itemOrder.qty;
+          itemTotalEl.textContent = product.price * itemOrder.qty;
+
+          const allOrders = readOrders();
+          allOrders.forEach(o=>o.items.forEach(i=>{ if(i.id===itemOrder.id) i.qty=itemOrder.qty; }));
+          writeOrders(allOrders);
+
           updateTotal();
         } else alert("已達庫存上限！");
       };
 
-      total += product.price*itemOrder.qty;
+      grandTotal += product.price * itemOrder.qty;
     });
   });
 
+  // -------- 顯示總金額 --------
   const totalRow = document.createElement('div');
-  totalRow.style.marginTop='12px';
-  totalRow.style.fontWeight='700';
+  totalRow.style.textAlign = 'right';
+  totalRow.style.marginTop = '12px';
+  totalRow.style.fontWeight = 'bold';
+  totalRow.style.fontSize = '18px';
   totalRow.id='total-amount';
-  totalRow.textContent=`總金額：$${total}`;
+  totalRow.textContent = `總金額：$${grandTotal}`;
   wrap.appendChild(totalRow);
 }
 
 // ------------------ 更新總金額 ------------------
 function updateTotal(){
-  let total=0;
-  readOrders().forEach(order=>{
+  let total = 0;
+  const orders = readOrders();
+  orders.forEach(order=>{
     order.items.forEach(i=>{
-      const product=products.find(p=>p.id===i.id);
-      if(product) total+=i.qty*product.price;
+      const product = products.find(p=>p.id===i.id);
+      if(product) total += i.qty * product.price;
     });
   });
-  const totalEl=document.getElementById('total-amount');
-  if(totalEl) totalEl.textContent=`總金額：$${total}`;
+  const totalEl = document.getElementById('total-amount');
+  if(totalEl) totalEl.textContent = `總金額：$${total}`;
 }
+
+// ------------------ DOM Ready ------------------
+document.addEventListener('DOMContentLoaded', ()=>{
+  loadProducts();
+  syncCartBadge();
+
+  const checkoutBtn = document.getElementById('checkout-btn');
+  if(checkoutBtn){
+    checkoutBtn.addEventListener('click', ()=>{
+      const orders = readOrders();
+      if(!orders.length){ alert("購物車是空的，無法結帳！"); return; }
+      window.location.href='checkout.html';
+    });
+  }
+});
 
 // ------------------ 即時訂單顯示 + 狀態列 + 提醒 ------------------
 let lastStatuses = {};

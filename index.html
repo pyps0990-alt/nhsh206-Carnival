@@ -66,6 +66,37 @@
       opacity: 1;
       transform: translateX(-50%) scale(1);
     }
+    /* ---------- 醒目標語動畫（動態漸層+淡入） ---------- */
+    /* ===================== Dynamic Slogan ===================== */
+/* ===================== Dynamic Slogan ===================== */
+.slogan {
+  margin-top: 24px;
+  margin-bottom: 40px;
+  text-align: center;
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  background: linear-gradient(90deg,
+              var(--primary) 0%,
+              var(--accent) 40%,
+              var(--primary-strong) 100%);
+  background-size: 250% 100%;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: sloganFlow 5s linear infinite;
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+@keyframes sloganFlow {
+  0% { background-position: 250% 0; }
+  100% { background-position: -250% 0; }
+}
+
+.slogan.hide {
+  opacity: 0;
+  transform: translateY(10px);
+}
   </style>
 </head>
 <body>
@@ -87,7 +118,6 @@
       </nav>
     </div>
   </header>
-
   <!-- 左上角浮動訂單 -->
   <div id="active-orders-banner">
     <strong>正在進行中的訂單：</strong>
@@ -102,10 +132,10 @@
       <div class="container">
         <h2>歡迎光臨，飲ㄐㄩ啦！</h2>
         <p class="subtitle">歡迎選購我們提供的客製化及特色飲品</p>
+        <div class="slogan" id="dynamic-slogan">🍃 一口清爽，滿滿206風味！🥤</div>
         <a href="products.html" class="btn primary">前往商品列表</a>
       </div>
     </section>
-
     <section class="section place">
       <div class="container">
         <h2>攤位位置</h2>
@@ -234,6 +264,29 @@ document.addEventListener("DOMContentLoaded", ()=>{
     } else banner.style.display='none';
   });
 });
+// ------------------ 動態標語輪播 ------------------
+// ------------------ 動態標語輪播 ------------------
+const slogans = [
+  "🍃 一口清爽，滿滿206風味！🥤",
+  "🌿 校慶限定・錯過再等一年！",
+  "🥤 青春調配・喝出你的態度！",
+  "✨ 手搖靈魂・飲出快樂能量！"
+];
+
+let currentSlogan = 0;
+const sloganEl = document.getElementById("dynamic-slogan");
+
+function rotateSlogan() {
+  sloganEl.classList.add("hide");
+  setTimeout(() => {
+    currentSlogan = (currentSlogan + 1) % slogans.length;
+    sloganEl.textContent = slogans[currentSlogan];
+    sloganEl.classList.remove("hide");
+  }, 600);
+}
+
+setInterval(rotateSlogan, 4000);
+
 </script>
 </body>
 </html>

@@ -99,6 +99,24 @@
     z-index:9999;
     font-weight:600;
   }
+  
+  #checkout-submit {
+    background: var(--primary);   /* 主色系背景 */
+    color: #fff;                  /* 白色文字 */
+    font-weight: 700;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: filter 0.2s, transform 0.2s;
+  }
+  #checkout-submit:hover {
+    filter: brightness(1.1);
+    transform: scale(1.05);
+  }
+  #checkout-submit:active {
+    transform: scale(0.95);
+  }
 </style>
 </head>
 <body>
@@ -206,54 +224,80 @@ async function loadProducts() {
 
 function renderCheckoutSummary() {
   const summary = document.getElementById('checkout-summary');
-  summary.innerHTML='';
+  summary.innerHTML = '';
   const orders = readOrders();
-  if(!orders.length){ summary.innerHTML='<p>購物車是空的</p>'; return; }
+  if (!orders.length) { 
+    summary.innerHTML = '<p>購物車是空的</p>'; 
+    return; 
+  }
 
   let total = 0;
+
   orders.forEach(order => {
     order.items.forEach(itemOrder => {
-      const product = window.products.find(p=>p.id===itemOrder.id);
-      if(!product) return;
+      const product = window.products.find(p => p.id === itemOrder.id);
+      if (!product) return;
+
       const row = document.createElement('div');
-      row.style.display='flex'; row.style.justifyContent='space-between'; row.style.alignItems='center'; row.style.marginBottom='6px';
-      row.innerHTML = `
-        <span>${product.name}</span>
-        <div class="qty-control">
-          <button class="minus">-</button>
-          <span class="qty">${itemOrder.qty}</span>
-          <button class="plus">+</button>
-        </div>
-        <span>$<span class="item-total">${product.price*itemOrder.qty}</span></span>
+      row.className = 'product-card';
+      row.style.display = 'flex';
+      row.style.alignItems = 'center';
+      row.style.justifyContent = 'space-between';
+      row.style.padding = '12px';
+      row.style.border = '1px solid #ddd';
+      row.style.borderRadius = '12px';
+      row.style.marginBottom = '12px';
+      row.style.background = 'var(--panel, #f5f5f5)';
+      row.style.boxShadow = '0 2px 6px rgba(0,0,0,0.05)';
+
+      // 商品圖片
+      const img = document.createElement('img');
+      img.src = product.img;
+      img.alt = product.name;
+      img.style.width = '80px';
+      img.style.height = '80px';
+      img.style.objectFit = 'cover';
+      img.style.borderRadius = '10px';
+
+      // 中間商品名稱 + 數量
+      const info = document.createElement('div');
+      info.style.flex = '1';
+      info.style.marginLeft = '12px';
+      info.style.display = 'flex';
+      info.style.flexDirection = 'column';
+      info.style.justifyContent = 'center';
+      info.innerHTML = `
+        <div style="font-weight:700;font-size:16px;margin-bottom:4px;">${product.name}</div>
+        <div style="font-size:14px;">數量：${itemOrder.qty}</div>
       `;
+
+      // 右側小計
+      const subtotal = document.createElement('div');
+      subtotal.style.fontWeight = '700';
+      subtotal.style.fontSize = '16px';
+      subtotal.textContent = `$${product.price * itemOrder.qty}`;
+
+      row.appendChild(img);
+      row.appendChild(info);
+      row.appendChild(subtotal);
+
       summary.appendChild(row);
 
-      const qtyEl = row.querySelector('.qty');
-      const itemTotalEl = row.querySelector('.item-total');
-
-      row.querySelector('.minus').onclick = ()=>{
-        if(itemOrder.qty>1){
-          itemOrder.qty--; qtyEl.textContent=itemOrder.qty;
-          itemTotalEl.textContent=product.price*itemOrder.qty;
-          updateLocalStorage(); updateTotal();
-        }
-      };
-      row.querySelector('.plus').onclick = ()=>{
-        if(itemOrder.qty<product.stock){
-          itemOrder.qty++; qtyEl.textContent=itemOrder.qty;
-          itemTotalEl.textContent=product.price*itemOrder.qty;
-          updateLocalStorage(); updateTotal();
-        } else alert("已達庫存上限！");
-      };
-
-      total+=product.price*itemOrder.qty;
+      total += product.price * itemOrder.qty;
     });
   });
+
+  // 總金額
   const totalRow = document.createElement('div');
-  totalRow.style.fontWeight='700'; totalRow.style.marginTop='12px'; totalRow.id='total-amount';
-  totalRow.textContent=`總金額：$${total}`;
+  totalRow.style.fontWeight = '700';
+  totalRow.style.fontSize = '18px';
+  totalRow.style.marginTop = '12px';
+  totalRow.style.textAlign = 'right';
+  totalRow.id = 'total-amount';
+  totalRow.textContent = `總金額：$${total}`;
   summary.appendChild(totalRow);
 }
+
 
 function updateTotal() {
   let total = 0;
